@@ -1,0 +1,16 @@
+{
+  "name": "integratedgov-ai",
+  "version": "1.0.0",
+  "description": "IntegratedGov AI — NyayMitra + PanchayatGPT unified rural governance platform",
+  "scripts": {
+    "dev": "concurrently -n client,server,ai -c cyan,yellow,magenta \"npm run dev --prefix client\" \"npm run dev --prefix server\" \"cd ai-service && python -m uvicorn main:app --port 8000\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:ai": "cd ai-service && python -m uvicorn main:app --port 8000",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "build": "npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
