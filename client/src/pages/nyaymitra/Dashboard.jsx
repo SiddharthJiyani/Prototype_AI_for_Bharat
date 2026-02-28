@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Search, BookOpen, Scale, Mic, ChevronRight, Clock, Loader2, MessageSquare, FolderOpen } from 'lucide-react'
+import { FileText, Search, BookOpen, Scale, Mic, ChevronRight, Clock, Loader2, MessageSquare, FolderOpen, ClipboardEdit } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -35,6 +35,14 @@ const SERVICES = [
     badge: 'New',
   },
   {
+    icon: ClipboardEdit,
+    title: 'Form Auto-Fill',
+    titleHi: 'फॉर्म ऑटो-फिल',
+    description: 'Upload government forms — AI fills fields for you',
+    href: '/nyaymitra/forms',
+    badge: 'New',
+  },
+  {
     icon: Scale,
     title: 'My Cases',
     titleHi: 'मेरे केस',
@@ -48,14 +56,6 @@ const SERVICES = [
     titleHi: 'योजना पात्रता',
     description: 'Find government schemes you qualify for',
     href: '/panchayat/schemes',
-    badge: null,
-  },
-  {
-    icon: BookOpen,
-    title: 'Know My Rights',
-    titleHi: 'मेरे अधिकार',
-    description: 'Understand your legal rights and protections',
-    href: '/nyaymitra/chat',
     badge: null,
   },
 ]

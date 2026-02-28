@@ -281,13 +281,19 @@ export default function LegalChat() {
   const [contextLimitReached, setContextLimitReached] = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(true)
   const chatEndRef = useRef(null)
+  const chatContainerRef = useRef(null)
   const mediaRecorder = useRef(null)
   const audioChunks = useRef([])
   const audioRef = useRef(null)
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const el = chatContainerRef.current
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight
+      })
+    }
+  }, [messages, loading])
 
   const startNewChat = () => {
     setMessages([])
@@ -429,7 +435,7 @@ export default function LegalChat() {
   const contextPercent = Math.min(100, Math.round((msgCount / MAX_CONTEXT_MESSAGES) * 100))
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-w-3xl mx-auto">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-w-5xl mx-auto w-full px-0">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
@@ -527,7 +533,7 @@ export default function LegalChat() {
       )}
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
 
         {/* Welcome screen */}
         {messages.length === 0 && (

@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
 import dotenv from 'dotenv'
+import passport from 'passport'
 
 import authRoutes from './routes/auth.js'
 import casesRoutes from './routes/cases.js'
@@ -22,9 +23,12 @@ const PORT = process.env.PORT || 5000
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }))
 app.use(express.json())
 app.use(morgan('dev'))
+app.use(passport.initialize())
 
 // Routes
 app.use('/api/auth', authRoutes)
+// Google OAuth callback lives at /auth/google/callback (matches GOOGLE_CALLBACK_URL)
+app.use('/auth', authRoutes)
 app.use('/api/cases', casesRoutes)
 app.use('/api/documents', documentsRoutes)
 app.use('/api/grievances', grievancesRoutes)

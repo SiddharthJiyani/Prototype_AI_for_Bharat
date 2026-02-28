@@ -64,6 +64,7 @@ export default function LegalDesk() {
   const navigate = useNavigate()
   const fileRef = useRef(null)
   const chatEndRef = useRef(null)
+  const chatContainerRef = useRef(null)
 
   // Document state
   const [documentText, setDocumentText] = useState('')
@@ -90,9 +91,14 @@ export default function LegalDesk() {
     loadHistory()
   }, [])
 
-  // ─── Auto-scroll chat ───
+  // ─── Auto-scroll chat (scroll WITHIN the chat box, not the page) ───
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = chatContainerRef.current
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight
+      })
+    }
   }, [chatMessages, chatLoading])
 
   const loadHistory = async () => {
@@ -327,8 +333,8 @@ export default function LegalDesk() {
     toast.success('Chat cleared / चैट साफ़ की गई')
   }
 
-  const sendChatMessage = async () => {
-    const q = chatInput.trim()
+  const sendChatMessage = async (overrideText = null) => {
+    const q = (overrideText ?? chatInput).trim()
     if (!q) return
 
     if (chatContextLimitReached) {
@@ -593,7 +599,7 @@ export default function LegalDesk() {
         ) : activeTab === 'chat' ? (
           /* ─── Chat Tab ─── */
           <div className="space-y-4">
-            <div className="border border-border rounded-lg bg-card p-4 h-[65vh] overflow-y-auto space-y-3">
+            <div ref={chatContainerRef} className="border border-border rounded-lg bg-card p-4 h-[65vh] overflow-y-auto space-y-3">
               {chatMessages.length === 0 && (
                 <div className="text-center py-12 space-y-3">
                   <MessageSquare size={28} className="mx-auto text-muted-foreground opacity-50" />

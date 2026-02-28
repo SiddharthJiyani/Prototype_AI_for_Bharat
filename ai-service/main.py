@@ -3,7 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import voice, legal, schemes, budget, meetings, integration, rag, translate, tts
+from routers import voice, legal, schemes, budget, meetings, integration, rag, translate, tts, forms
 
 app = FastAPI(
     title="IntegratedGov AI Service",
@@ -31,6 +31,7 @@ app.include_router(integration.router, prefix="/ai/integration", tags=["Integrat
 app.include_router(rag.router, prefix="/ai/rag", tags=["RAG Legal Chat"])
 app.include_router(translate.router, prefix="/ai/translate", tags=["Translation"])
 app.include_router(tts.router, prefix="/ai/tts", tags=["Text-to-Speech"])
+app.include_router(forms.router, prefix="/ai/forms", tags=["Form Auto-Fill"])
 
 
 @app.on_event("startup")
