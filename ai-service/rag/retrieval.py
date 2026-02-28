@@ -1,8 +1,16 @@
 """
-RAG retrieval pipeline: query vector store → web search → orchestrate → call Bedrock → return answer.
+Agentic RAG retrieval pipeline:
+  classify query → retrieve from KB → assess quality → agent decides strategy →
+  optional web search → re-rank → build Markdown prompt → call Bedrock → return.
 """
 from rag.vectorstore import query as vector_query
 from rag.web_search import search_indian_legal, search_recent_news, format_search_results
+from rag.indian_kanoon import search_case_law, format_kanoon_results
+from rag.agent import (
+    detect_language, classify_query, rerank_results,
+    assess_retrieval_quality, agent_decide_strategy,
+    build_language_instruction,
+)
 from routers.legal import invoke_bedrock
 import json
 import re
@@ -136,33 +144,61 @@ def _build_history_text(chat_history: list, max_msgs: int = None, max_chars: int
 def retrieve_and_answer(
     question: str,
     language: str = "en",
-    n_results: int = 5,
+    n_results: int = 8,
     chat_history: list = None,
     enable_web_search: bool = True
 ) -> dict:
     """
-    Full RAG + Web Search orchestration pipeline:
-    1. Retrieve relevant legal knowledge from ChromaDB
-    2. Search the web for up-to-date information
-    3. Orchestrate all sources into a unified context
-    4. Call Bedrock for the answer
-    5. Track context usage and warn if limit approaching
+    Agentic RAG pipeline:
+    1. Detect query language automatically
+    2. Classify query type (factual, procedural, scheme, etc.)
+    3. Retrieve from knowledge base with extra candidates for re-ranking
+    4. Assess retrieval quality
+    5. Agent decides: use KB only, supplement with web, or web-first
+    6. Re-rank results by relevance
+    7. Build Markdown-formatted prompt with language instruction
+    8. Call Bedrock and parse structured response
+    9. Return with context management metadata + agent trace
     """
-    # ── Step 1: Build history & check context limit ──
+    # ── Step 1: Detect language from the query itself ──
+    detected_lang = detect_language(question)
+    effective_lang = detected_lang if detected_lang != "en" else language
+    print(f"[agent] Language detected: {detected_lang}, effective: {effective_lang}")
+
+    # ── Step 2: Classify the query ──
+    query_class = classify_query(question)
+    print(f"[agent] Query type: {query_class['type']}")
+
+    # ── Step 3: Build history & check context limit ──
     history_text, msg_count, context_limit_reached = _build_history_text(chat_history)
     context_warning = msg_count >= CONTEXT_WARNING_THRESHOLD
 
-    # ── Step 2: Retrieve from knowledge base ──
-    results = vector_query(question, n_results=n_results)
-    
+    # ── Step 4: Retrieve from knowledge base (fetch extra for re-ranking) ──
+    fetch_count = n_results + 5  # fetch extra candidates for re-ranking
+    results = vector_query(question, n_results=fetch_count)
+
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
-    
+
+    # ── Step 5: Assess retrieval quality ──
+    quality = assess_retrieval_quality(documents, distances)
+    print(f"[agent] KB quality: {quality['quality']} (avg relevance: {quality['avg_relevance']})")
+
+    # ── Step 6: Agent decides strategy ──
+    strategy = agent_decide_strategy(question, query_class, quality, enable_web_search)
+    print(f"[agent] Strategy: {strategy['reasoning']}")
+
+    # ── Step 7: Re-rank results ──
+    ranked_docs, ranked_metas, ranked_dists = rerank_results(
+        question, documents, metadatas, distances, top_k=n_results
+    )
+
+    # Build KB context from re-ranked results
     context_parts = []
     sources = []
-    for i, (doc, meta, dist) in enumerate(zip(documents, metadatas, distances)):
-        context_parts.append(f"[Knowledge Base Source {i+1}]: {doc}")
+    for i, (doc, meta, dist) in enumerate(zip(ranked_docs, ranked_metas, ranked_dists)):
+        context_parts.append(f"[Knowledge Source {i+1}]: {doc}")
         sources.append({
             "text": doc[:200] + "..." if len(doc) > 200 else doc,
             "source": meta.get("source", "Legal Knowledge Base"),
@@ -170,15 +206,16 @@ def retrieve_and_answer(
             "relevance": round(1 - dist, 3) if dist else None,
             "type": "knowledge_base"
         })
-    
-    kb_context = "\n\n".join(context_parts) if context_parts else "No specific legal documents found in knowledge base."
 
-    # ── Step 3: Web search for up-to-date info ──
+    kb_context = "\n\n".join(context_parts) if context_parts else "No relevant legal documents found in knowledge base."
+
+    # ── Step 8: Conditional web search based on agent decision ──
     web_context = ""
     web_sources = []
-    if enable_web_search:
+    if strategy["do_web_search"]:
         try:
-            web_results = search_indian_legal(question, max_results=4)
+            search_query = strategy.get("search_query_override") or question
+            web_results = search_indian_legal(search_query, max_results=4)
             if web_results:
                 web_context = format_search_results(web_results)
                 for wr in web_results:
@@ -190,59 +227,105 @@ def retrieve_and_answer(
                         "type": "web_search"
                     })
         except Exception as e:
-            print(f"[retrieve_and_answer] Web search failed: {e}")
+            print(f"[agent] Web search failed: {e}")
 
-    # ── Step 4: Build orchestrated prompt ──
-    lang_instruction = ""
-    if language == "hi":
-        lang_instruction = "\nRespond primarily in Hindi (Devanagari script). Use simple language a rural person can understand. You may use English for legal terms."
-    elif language != "en":
-        lang_instruction = f"\nRespond in {language} language. Use simple, easy-to-understand words."
+    # Optional news search for schemes
+    if strategy.get("do_news_search"):
+        try:
+            news = search_recent_news(question, max_results=3)
+            if news:
+                news_text = format_search_results(news)
+                web_context += f"\n\n--- RECENT NEWS ---\n{news_text}"
+        except Exception:
+            pass
 
-    web_block = ""
+    # ── Step 8b: Indian Kanoon case law search (targeted) ──
+    kanoon_context = ""
+    kanoon_sources = []
+    # Only search Kanoon when query references specific legal sections/acts,
+    # or when KB has no relevant results and it's a legal query
+    has_legal_ref = bool(re.search(
+        r'section\s+\d+|धारा\s+\d+|article\s+\d+|\bipc\b|\bcrpc\b|\bcpc\b|act.*\d{4}|\bjudgment\b|\bjudgement\b|\bverdict\b|\bcase\b.*\bvs\b',
+        question, re.IGNORECASE
+    ))
+    needs_case_law = has_legal_ref or (quality["quality"] in ("low", "none") and query_class["type"] in ("factual", "rights", "case_specific"))
+    if needs_case_law:
+        try:
+            kanoon_results = search_case_law(question, max_results=3)
+            if kanoon_results:
+                kanoon_context = format_kanoon_results(kanoon_results)
+                for kr in kanoon_results:
+                    kanoon_sources.append({
+                        "text": kr.get("snippet", "")[:200],
+                        "source": kr.get("url", ""),
+                        "category": "Case Law",
+                        "title": kr.get("title", ""),
+                        "court": kr.get("court", ""),
+                        "date": kr.get("date", ""),
+                        "type": "indian_kanoon"
+                    })
+                print(f"[agent] Kanoon: found {len(kanoon_results)} case law results")
+        except Exception as e:
+            print(f"[agent] Kanoon search failed: {e}")
+
+    # ── Step 9: Build agentic prompt with Markdown instructions ──
+    lang_instruction = build_language_instruction(detected_lang, language)
+
+    # ── Build supplementary blocks (only if they exist) ──
+    supplementary_block = ""
+
+    if kanoon_context:
+        supplementary_block += f"""\n\n--- RELEVANT COURT JUDGMENTS (Indian Kanoon) ---\n{kanoon_context}\n--- END JUDGMENTS ---"""
+
     if web_context:
-        web_block = f"""
---- UP-TO-DATE WEB INFORMATION ---
-{web_context}
---- END WEB INFO ---
-"""
+        supplementary_block += f"""\n\n--- SUPPLEMENTARY WEB INFORMATION ---\n{web_context}\n--- END WEB INFO ---"""
 
-    prompt = f"""You are NyayMitra (न्यायमित्र), a friendly AI legal assistant for rural Indians. 
-You help people understand their legal rights, government schemes, and laws in simple language.
-You have access to BOTH a legal knowledge base AND up-to-date web search results.
+    confidence_note = ""
+    if strategy["confidence"] == "low":
+        confidence_note = "\nIMPORTANT: The knowledge base had low relevance. You may lean on court judgments or web sources, but say so."
+    elif strategy["confidence"] == "high":
+        confidence_note = "\nThe knowledge base has strong coverage. Base your answer primarily on it."
+
+    prompt = f"""You are **NyayMitra (न्यायमित्र)**, a friendly and expert AI legal assistant for Indian citizens.
+You help people understand their legal rights, government schemes, court procedures, and laws in simple language.
 {lang_instruction}
+{confidence_note}
 {history_text}
-IMPORTANT: Orchestrate information from ALL sources below to give the most accurate, up-to-date answer.
-Prefer recent/specific information from web sources when available. Use the knowledge base for foundational legal knowledge.
 
---- LEGAL KNOWLEDGE BASE ---
+--- LEGAL KNOWLEDGE BASE (PRIMARY SOURCE) ---
 {kb_context}
 --- END KNOWLEDGE BASE ---
-{web_block}
-User's question: {question}
+{supplementary_block}
 
-Instructions:
-1. Answer in simple, easy-to-understand language (imagine explaining to someone with limited education)
-2. Cite specific laws, sections, or acts when relevant
-3. If web sources provide more recent information, mention that
-4. If the user needs to take action, give clear step-by-step instructions
-5. If you're unsure, say so — never give wrong legal advice
-6. Be empathetic and supportive
+**User's question:** {question}
 
-Respond in this JSON format:
+SOURCE PRIORITY (follow strictly):
+1. **Knowledge Base is your PRIMARY source.** Start with information from the KB above. Most answers live there.
+2. **Court judgments (Indian Kanoon)** are supplementary. Only cite a judgment when it directly strengthens or illustrates a point you already made from the KB. Do NOT list judgments independently — weave them naturally, e.g. "The Supreme Court upheld this in *XYZ vs State (2015)*."
+3. **Web sources** fill gaps only. If KB + judgments already answer the question, skip web info entirely.
+4. **Never let supplementary sources dominate.** The answer should read as a coherent legal explanation, not a list of search results.
+
+FORMATTING:
+- Use **Markdown**: `##` headings, **bold** laws/sections, bullet lists, `>` blockquotes for exact law text.
+- Cite laws and sections inline (e.g. **Section 498A IPC**). Be actionable — give step-by-step guidance.
+- Keep the answer readable and clean. No source dumps.
+- Use simple language a person with basic education can understand.
+- Be empathetic and supportive. If unsure, say so — never give wrong legal advice.
+
+Respond in this JSON format (the "answer" field MUST contain Markdown-formatted text):
 {{
-  "answer": "<your detailed answer orchestrating ALL sources>",
+  "answer": "<your detailed, blended Markdown-formatted answer>",
   "laws_cited": ["<law/section 1>", "<law/section 2>"],
   "action_steps": ["<step 1>", "<step 2>"],
   "needs_lawyer": <true/false>,
   "follow_up_questions": ["<suggested follow-up 1>", "<suggested follow-up 2>"],
-  "web_enhanced": <true if web results contributed to the answer>
+  "references": ["<inline citation or source name 1>", "<inline citation or source name 2>"]
 }}"""
 
-    # ── Step 5: Call Bedrock ──
-    raw = invoke_bedrock(prompt, max_tokens=2048)
-    
-    # ── Step 6: Parse response ──
+    # ── Step 10: Call Bedrock ──
+    raw = invoke_bedrock(prompt, max_tokens=2500)
+
+    # ── Step 11: Parse response ──
     try:
         start = raw.find("{")
         end = raw.rfind("}") + 1
@@ -252,16 +335,29 @@ Respond in this JSON format:
             parsed = {"answer": raw, "laws_cited": [], "action_steps": [], "needs_lawyer": False, "follow_up_questions": []}
     except json.JSONDecodeError:
         parsed = {"answer": raw, "laws_cited": [], "action_steps": [], "needs_lawyer": False, "follow_up_questions": []}
-    
+
     # Merge all sources
-    parsed["sources"] = sources + web_sources
-    
+    parsed["sources"] = sources + kanoon_sources + web_sources
+
     # Context management metadata
     parsed["context_info"] = {
-        "message_count": msg_count + 1,  # +1 for this message
+        "message_count": msg_count + 1,
         "max_messages": MAX_CONTEXT_MESSAGES,
         "context_warning": context_warning,
         "context_limit_reached": context_limit_reached,
+    }
+
+    # Agent trace for debugging / transparency
+    parsed["agent_trace"] = {
+        "detected_language": detected_lang,
+        "effective_language": effective_lang,
+        "query_type": query_class["type"],
+        "kb_quality": quality["quality"],
+        "kb_avg_relevance": quality["avg_relevance"],
+        "strategy": strategy["reasoning"],
+        "web_searched": strategy["do_web_search"],
+        "kanoon_searched": len(kanoon_sources) > 0,
+        "confidence": strategy["confidence"],
     }
 
     return parsed
@@ -386,22 +482,21 @@ Respond ONLY with valid JSON (no markdown fences, no extra text):
 
 def chat_about_document(question: str, document_text: str, language: str = "en", chat_history: list = None) -> dict:
     """
-    Answer questions about a specific uploaded document.
-    Unlike retrieve_and_answer(), this uses the document itself as primary context.
-    Also performs web search for supplementary up-to-date information.
+    Agentic document chat — answers questions about a specific uploaded document.
+    Uses the document itself as primary context. Detects query language automatically.
+    Responds with Markdown-formatted answers.
     """
-    # Cap document to fit in context
-    doc_text = document_text[:20000]
+    # Cap document — generous limit for Nova Pro's large context
+    doc_text = document_text[:25000]
+
+    # Detect language from the question
+    detected_lang = detect_language(question)
+    effective_lang = detected_lang if detected_lang != "en" else language
+    lang_instruction = build_language_instruction(detected_lang, language)
 
     # Build history with context tracking
     history_text, msg_count, context_limit_reached = _build_history_text(chat_history)
     context_warning = msg_count >= CONTEXT_WARNING_THRESHOLD
-
-    lang_instruction = ""
-    if language == "hi":
-        lang_instruction = "\nRespond primarily in Hindi (Devanagari script). Use simple language. You may use English for legal terms."
-    elif language != "en":
-        lang_instruction = f"\nRespond in {language} language. Use simple words."
 
     # Optional web search for supplementary info
     web_block = ""
@@ -413,35 +508,44 @@ def chat_about_document(question: str, document_text: str, language: str = "en",
     except Exception:
         pass
 
-    prompt = f"""You are NyayMitra, an expert AI legal assistant. The user has uploaded a legal document and is asking questions about it.
-Your job is to answer based SPECIFICALLY on the document content below. Quote facts, names, dates, and details from the document.
-Do NOT give generic legal advice. If the document doesn't contain the answer, say so clearly.
+    prompt = f"""You are **NyayMitra**, an expert AI legal assistant specializing in Indian law.
 {lang_instruction}
 {history_text}
-=== UPLOADED DOCUMENT ===
+
+CRITICAL INSTRUCTIONS:
+1. Read the ENTIRE document below carefully before answering.
+2. The answer is almost always IN the document — search thoroughly through every paragraph, section, and clause.
+3. Reference specific text, names, dates, sections, amounts, and details from the document.
+4. Be thorough, specific, and detailed in your answer.
+5. Only say information is not in the document if you have genuinely searched every part of it.
+
+FORMATTING RULES (VERY IMPORTANT — follow strictly):
+- Use ## for main section headings and ### for sub-sections.
+- Use **bold** for key terms, names, dates, section numbers, and important phrases.
+- Use bullet points (- ) for listing multiple findings, facts, or points.
+- Use numbered lists (1. 2. 3.) for sequential steps or ordered items.
+- Write normal paragraphs for explanations — do NOT prefix every line with > (blockquote).
+- ONLY use blockquote (> ) for a single SHORT direct verbatim quote from the document that is essential. Maximum 1-2 blockquotes per answer. Most answers need ZERO blockquotes.
+- Do NOT wrap bullet points, headings, or regular text in blockquotes.
+- Keep the answer clean, structured, and easy to read.
+{web_block}
+
+=== UPLOADED DOCUMENT (READ EVERY LINE) ===
 {doc_text}
 === END DOCUMENT ===
-{web_block}
-User's question: {question}
 
-Instructions:
-1. Answer based on what's IN the document
-2. Quote specific parts of the document when relevant
-3. If the user asks about something not in the document, say "This is not mentioned in your document"
-4. Cite specific sections, dates, names from the document
-5. Be thorough and detailed
-6. If web info adds useful context, include it but clearly label as external info
+**User's question:** {question}
 
-Respond in JSON:
+Respond in JSON format. The "answer" field MUST contain clean Markdown text (NOT wrapped in blockquotes) with specific facts from the document:
 {{
-  "answer": "<detailed answer based on the document>",
+  "answer": "<clean Markdown answer with headings, bold, bullet lists — NO excessive blockquotes>",
   "laws_cited": ["<laws mentioned in or relevant to the document>"],
   "action_steps": ["<recommended steps based on the document>"],
   "needs_lawyer": <true if the document involves complex litigation>,
   "follow_up_questions": ["<relevant follow-up about this document>"]
 }}"""
 
-    raw = invoke_bedrock(prompt, max_tokens=2048)
+    raw = invoke_bedrock(prompt, max_tokens=2500)
 
     try:
         start = raw.find("{")

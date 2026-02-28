@@ -4,11 +4,13 @@ import {
   Upload, FileText, HelpCircle, Clock, TrendingUp,
   BookOpen, MessageSquare, Loader2, ArrowLeft, ChevronRight,
   History, Trash2, FolderOpen, Users, Scale, Shield,
-  AlertTriangle, CheckCircle2, XCircle, RefreshCw
+  AlertTriangle, CheckCircle2, XCircle, RefreshCw, ExternalLink,
+  ChevronDown, ChevronUp, Gavel, Lightbulb
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { getUserId } from '@/utils/userId'
@@ -21,6 +23,42 @@ const TABS = [
   { id: 'caselaw', label: 'Case Law', labelHi: 'केस कानून', icon: BookOpen },
   { id: 'chat', label: 'Chat', labelHi: 'चैट', icon: MessageSquare },
 ]
+
+// ─── Collapsible action steps for doc-chat messages ─────────────────────────
+function DocChatActionSteps({ steps }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border border-border/60 rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-govgreen-50/50 dark:bg-govgreen-900/10 hover:bg-govgreen-50 dark:hover:bg-govgreen-900/20 transition-colors text-left"
+      >
+        <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+          <Lightbulb size={12} className="text-govgreen-600 dark:text-govgreen-400" />
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-govgreen-100 dark:bg-govgreen-900/30 text-govgreen-700 dark:text-govgreen-400 text-[9px] font-bold">
+            {steps.length}
+          </span>
+          Recommended Steps
+        </span>
+        {open ? <ChevronUp size={13} className="text-muted-foreground" /> : <ChevronDown size={13} className="text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="px-3 py-2.5 bg-card">
+          <ol className="space-y-2">
+            {steps.map((step, j) => (
+              <li key={j} className="flex gap-2 text-[12px] text-foreground items-start">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-govgreen-100 dark:bg-govgreen-900/30 text-govgreen-700 dark:text-govgreen-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
+                  {j + 1}
+                </span>
+                <span className="leading-relaxed">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function LegalDesk() {
   const navigate = useNavigate()
@@ -312,7 +350,24 @@ export default function LegalDesk() {
         chat_history: updatedMessages.map(m => ({ role: m.role, content: m.content })),
       })
 
-      const newAssistantMsg = { role: 'assistant', content: res.data.answer }
+      console.log('━━━ [LegalDesk] Doc-Chat Response ━━━')
+      console.log('Question:', q)
+      console.log('Full response:', JSON.parse(JSON.stringify(res.data)))
+      console.log('Answer:', res.data.answer?.substring(0, 200) + '...')
+      console.log('Laws cited:', res.data.laws_cited)
+      console.log('Actions:', res.data.action_steps)
+      console.log('Follow-ups:', res.data.follow_up_questions)
+      console.log('Context info:', res.data.context_info)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+      const newAssistantMsg = {
+        role: 'assistant',
+        content: res.data.answer,
+        laws: res.data.laws_cited || [],
+        steps: res.data.action_steps || [],
+        needsLawyer: res.data.needs_lawyer || false,
+        followUps: res.data.follow_up_questions || [],
+      }
       const allMessages = [...updatedMessages, newAssistantMsg]
       setChatMessages(allMessages)
 
@@ -443,10 +498,13 @@ export default function LegalDesk() {
           ) : (
             <div className="grid gap-2">
               {history.map((doc) => (
-                <button
+                <div
                   key={doc.docId}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => loadFromHistory(doc.docId)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-secondary/50 hover:border-primary/30 transition-colors text-left group"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') loadFromHistory(doc.docId) }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:bg-secondary/50 hover:border-primary/30 transition-colors text-left group cursor-pointer"
                 >
                   <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <FileText size={16} className="text-primary" />
@@ -462,7 +520,7 @@ export default function LegalDesk() {
                   >
                     <Trash2 size={13} />
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -535,7 +593,7 @@ export default function LegalDesk() {
         ) : activeTab === 'chat' ? (
           /* ─── Chat Tab ─── */
           <div className="space-y-4">
-            <div className="border border-border rounded-lg bg-card p-4 h-[45vh] overflow-y-auto space-y-3">
+            <div className="border border-border rounded-lg bg-card p-4 h-[65vh] overflow-y-auto space-y-3">
               {chatMessages.length === 0 && (
                 <div className="text-center py-12 space-y-3">
                   <MessageSquare size={28} className="mx-auto text-muted-foreground opacity-50" />
@@ -557,10 +615,61 @@ export default function LegalDesk() {
               )}
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                  <div className={`max-w-[85%] rounded-xl px-3 py-2.5 text-sm ${
                     msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'
                   }`}>
-                    {msg.content}
+                    {msg.role === 'user' ? (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    ) : (
+                      <>
+
+                        {/* Main answer */}
+                        <MarkdownRenderer content={msg.content} />
+
+                        {/* ─── Structured metadata cards ─── */}
+                        <div className="mt-3 space-y-2">
+
+                          {/* Action Steps */}
+                          {msg.steps?.length > 0 && (
+                            <DocChatActionSteps steps={msg.steps} />
+                          )}
+
+                          {/* Laws cited as source pills */}
+                          {msg.laws?.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2">
+                              <BookOpen size={11} className="text-primary/70 shrink-0" />
+                              {msg.laws.map((law, j) => (
+                                <span key={j} className="inline-flex items-center text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                  {law}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Follow-up suggestions */}
+                          {msg.followUps?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 border-t border-border/40 pt-2">
+                              {msg.followUps.map((q, j) => (
+                                <button
+                                  key={j}
+                                  onClick={() => setChatInput(q)}
+                                  className="text-[10px] px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                  {q}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Document Section source tag */}
+                          {/* <div className="border-t border-border/40 pt-1.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] text-primary/70 hover:text-primary cursor-default">
+                              <FileText size={10} /> Document Section
+                            </span>
+                          </div> */}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

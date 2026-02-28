@@ -18,6 +18,46 @@ bedrock = boto3.client(
 MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
 
 
+def _simplify_prompt_for_retry(prompt: str) -> str:
+    """Strip potentially triggering content from the prompt for a retry."""
+    # Remove any raw document text blocks that might trip filters
+    import re
+    # Reduce document blocks to summaries
+    prompt = re.sub(
+        r"=== UPLOADED DOCUMENT ===[\s\S]*?=== END DOCUMENT ===",
+        "=== UPLOADED DOCUMENT ===\n[Document content provided — please answer based on general legal knowledge]\n=== END DOCUMENT ===",
+        prompt
+    )
+    # Remove web search blocks that might contain triggering snippets
+    prompt = re.sub(
+        r"--- SUPPLEMENTARY WEB INFO[\s\S]*?--- END WEB INFO ---",
+        "",
+        prompt
+    )
+    # Remove raw knowledge base blocks
+    prompt = re.sub(
+        r"--- KNOWLEDGE BASE[\s\S]*?--- END KNOWLEDGE BASE ---",
+        "",
+        prompt
+    )
+    # Trim to 4000 chars if still too long
+    if len(prompt) > 4000:
+        prompt = prompt[:4000] + "\n[Prompt truncated for retry]"
+    return prompt
+
+
+def _content_filtered_fallback() -> str:
+    """Return a safe JSON fallback when content filters block the response."""
+    return json.dumps({
+        "answer": "I apologize, but I was unable to generate a response for this particular query due to content safety filters. This can happen when the document or question contains sensitive content.\n\n**What you can try:**\n- Rephrase your question in simpler terms\n- Ask about a specific section of the document\n- Try a more general legal question\n\nIf this issue persists, please consult a local legal aid center or call **15100** (free legal aid helpline).",
+        "laws_cited": [],
+        "action_steps": ["Try rephrasing your question", "Ask about a specific section", "Contact legal aid helpline 15100"],
+        "needs_lawyer": False,
+        "follow_up_questions": ["Can you help me understand my basic rights?", "What legal aid options are available?"],
+        "web_enhanced": False
+    })
+
+
 def invoke_bedrock(prompt: str, max_tokens: int = 2048, use_demo: bool = False) -> str:
     """Invoke Bedrock with fallback to mock responses."""
     if use_demo:
@@ -47,8 +87,44 @@ def invoke_bedrock(prompt: str, max_tokens: int = 2048, use_demo: bool = False) 
             messages=[{"role": "user", "content": [{"text": prompt}]}],
             inferenceConfig={"maxTokens": max_tokens, "temperature": 0.7},
         )
+
+        # Check if content was filtered by Bedrock guardrails
+        stop_reason = resp.get("stopReason", "")
+        if stop_reason == "content_filtered":
+            print(f"[Bedrock] Content filtered (stop_reason={stop_reason}). Retrying with simplified prompt...")
+            # Retry with a simplified prompt that strips potentially triggering content
+            simplified = _simplify_prompt_for_retry(prompt)
+            retry_resp = bedrock.converse(
+                modelId=MODEL_ID,
+                messages=[{"role": "user", "content": [{"text": simplified}]}],
+                inferenceConfig={"maxTokens": max_tokens, "temperature": 0.5},
+            )
+            retry_stop = retry_resp.get("stopReason", "")
+            if retry_stop == "content_filtered":
+                print("[Bedrock] Retry also filtered. Returning safe fallback.")
+                return _content_filtered_fallback()
+            return retry_resp["output"]["message"]["content"][0]["text"]
+
         return resp["output"]["message"]["content"][0]["text"]
+    except bedrock.exceptions.ThrottlingException as e:
+        print(f"[Bedrock] Throttled: {e}. Waiting and retrying...")
+        import time
+        time.sleep(2)
+        try:
+            resp = bedrock.converse(
+                modelId=MODEL_ID,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig={"maxTokens": max_tokens, "temperature": 0.7},
+            )
+            return resp["output"]["message"]["content"][0]["text"]
+        except Exception as retry_e:
+            print(f"[Bedrock] Retry also failed: {retry_e}")
+            return _content_filtered_fallback()
     except Exception as e:
+        err_msg = str(e).lower()
+        if "content filter" in err_msg or "blocked" in err_msg or "guardrail" in err_msg:
+            print(f"[Bedrock] Content filter exception: {e}")
+            return _content_filtered_fallback()
         print(f"Bedrock error: {str(e)}, falling back to mock mode")
         return invoke_bedrock(prompt, max_tokens, use_demo=True)
 

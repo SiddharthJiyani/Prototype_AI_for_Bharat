@@ -6,10 +6,14 @@ import traceback
 from typing import Optional
 
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
     HAS_DDG = True
 except ImportError:
-    HAS_DDG = False
+    try:
+        from duckduckgo_search import DDGS
+        HAS_DDG = True
+    except ImportError:
+        HAS_DDG = False
 
 
 def web_search(query: str, max_results: int = 5, region: str = "in-en") -> list[dict]:
