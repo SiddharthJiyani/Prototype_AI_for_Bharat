@@ -115,9 +115,9 @@ export default function Landing() {
 
   const handleStart = () => {
     if (selectedType) {
-      navigate(USER_TYPES.find(t => t.id === selectedType)?.href || '/nyaymitra')
+      navigate(USER_TYPES.find(t => t.id === selectedType)?.href || '/login')
     } else {
-      navigate('/nyaymitra')
+      navigate('/login')
     }
   }
 

@@ -3,12 +3,12 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import voice, legal, schemes, budget, meetings, integration
+from routers import voice, legal, schemes, budget, meetings, integration, rag, translate, tts
 
 app = FastAPI(
     title="IntegratedGov AI Service",
-    description="FastAPI microservice handling all AI/ML — Amazon Bedrock, Transcribe, Polly, Comprehend",
-    version="1.0.0",
+    description="FastAPI microservice handling all AI/ML — Amazon Bedrock, RAG, Transcribe, Polly, Translate",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -19,6 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Existing routers
 app.include_router(voice.router, prefix="/ai/voice", tags=["Voice"])
 app.include_router(legal.router, prefix="/ai/legal", tags=["Legal"])
 app.include_router(schemes.router, prefix="/ai/schemes", tags=["Schemes"])
@@ -26,7 +27,24 @@ app.include_router(budget.router, prefix="/ai/budget", tags=["Budget"])
 app.include_router(meetings.router, prefix="/ai/meetings", tags=["Meetings"])
 app.include_router(integration.router, prefix="/ai/integration", tags=["Integration"])
 
+# New routers
+app.include_router(rag.router, prefix="/ai/rag", tags=["RAG Legal Chat"])
+app.include_router(translate.router, prefix="/ai/translate", tags=["Translation"])
+app.include_router(tts.router, prefix="/ai/tts", tags=["Text-to-Speech"])
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Seed legal knowledge base on first startup."""
+    try:
+        from rag.knowledge_base import seed_knowledge_base
+        print("Seeding legal knowledge base...")
+        seed_knowledge_base()
+        print("Knowledge base ready.")
+    except Exception as e:
+        print(f"Warning: Knowledge base seeding failed: {e}")
+
 
 @app.get("/ai/health")
 async def health():
-    return {"status": "ok", "service": "integatedgov-ai-service"}
+    return {"status": "ok", "service": "integatedgov-ai-service", "version": "2.0.0"}

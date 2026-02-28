@@ -5,6 +5,7 @@ import dotenv from 'dotenv'
 
 import authRoutes from './routes/auth.js'
 import casesRoutes from './routes/cases.js'
+import documentsRoutes from './routes/documents.js'
 import grievancesRoutes from './routes/grievances.js'
 import budgetRoutes from './routes/budget.js'
 import schemesRoutes from './routes/schemes.js'
@@ -25,6 +26,7 @@ app.use(morgan('dev'))
 // Routes
 app.use('/api/auth', authRoutes)
 app.use('/api/cases', casesRoutes)
+app.use('/api/documents', documentsRoutes)
 app.use('/api/grievances', grievancesRoutes)
 app.use('/api/budget', budgetRoutes)
 app.use('/api/schemes', schemesRoutes)

@@ -1,39 +1,61 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Search, BookOpen, Scale, Mic, ChevronRight, Clock, Loader2 } from 'lucide-react'
+import { FileText, Search, BookOpen, Scale, Mic, ChevronRight, Clock, Loader2, MessageSquare, FolderOpen } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
+import DailyLegalDose from '@/components/DailyLegalDose'
 import axios from 'axios'
 import { getUserId } from '@/utils/userId'
 
 const SERVICES = [
   {
-    icon: Search,
-    title: 'Check Scheme Eligibility',
-    description: 'Find government schemes you qualify for based on your profile',
-    href: '/nyaymitra',
-    badge: null,
+    icon: MessageSquare,
+    title: 'Legal Chat',
+    titleHi: 'कानूनी चैट',
+    description: 'Ask any legal question — by voice or text',
+    href: '/nyaymitra/chat',
+    badge: 'AI + Voice',
+    primary: true,
   },
   {
     icon: FileText,
-    title: 'Get Legal Help',
-    description: 'Generate legal notices and RTI applications in minutes',
+    title: 'File Complaint',
+    titleHi: 'शिकायत दर्ज करें',
+    description: 'Generate legal notices and RTI applications',
     href: '/nyaymitra/file',
     badge: 'Voice',
   },
   {
-    icon: BookOpen,
-    title: 'Know My Rights',
-    description: 'Understand your legal rights under labour, land, and welfare laws',
-    href: '/nyaymitra',
-    badge: null,
+    icon: FolderOpen,
+    title: 'Legal Desk',
+    titleHi: 'कानूनी डेस्क',
+    description: 'Upload documents for AI-powered analysis',
+    href: '/nyaymitra/desk',
+    badge: 'New',
   },
   {
     icon: Scale,
-    title: 'Track My Case',
-    description: 'Check the status of your filed applications and court cases',
+    title: 'My Cases',
+    titleHi: 'मेरे केस',
+    description: 'Track status of your filed applications',
     href: '/nyaymitra/cases',
+    badge: null,
+  },
+  {
+    icon: Search,
+    title: 'Scheme Eligibility',
+    titleHi: 'योजना पात्रता',
+    description: 'Find government schemes you qualify for',
+    href: '/panchayat/schemes',
+    badge: null,
+  },
+  {
+    icon: BookOpen,
+    title: 'Know My Rights',
+    titleHi: 'मेरे अधिकार',
+    description: 'Understand your legal rights and protections',
+    href: '/nyaymitra/chat',
     badge: null,
   },
 ]
@@ -73,23 +95,28 @@ export default function NyayDashboard() {
       </div>
 
       {/* Services grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {SERVICES.map((s) => {
           const Icon = s.icon
           return (
             <button
               key={s.title}
               onClick={() => navigate(s.href)}
-              className="flex flex-col items-start gap-2.5 rounded-lg border border-border bg-card p-4 text-left hover:bg-secondary/60 transition-colors group"
+              className={`flex flex-col items-start gap-2.5 rounded-lg border p-4 text-left transition-colors group ${
+                s.primary
+                  ? 'border-primary bg-primary/5 hover:bg-primary/10'
+                  : 'border-border bg-card hover:bg-secondary/60'
+              }`}
             >
               <div className="flex w-full items-center justify-between">
-                <Icon size={18} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+                <Icon size={18} className={`${s.primary ? 'text-primary' : 'text-muted-foreground'} group-hover:text-foreground transition-colors`} />
                 {s.badge && (
-                  <Badge variant="secondary" className="text-[10px]">{s.badge}</Badge>
+                  <Badge variant={s.badge === 'New' ? 'success' : 'secondary'} className="text-[10px]">{s.badge}</Badge>
                 )}
               </div>
               <div>
                 <p className="text-sm font-medium leading-snug">{s.title}</p>
+                <p className="text-[10px] text-muted-foreground leading-snug">{s.titleHi}</p>
                 <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{s.description}</p>
               </div>
             </button>
@@ -100,13 +127,16 @@ export default function NyayDashboard() {
       {/* Voice CTA */}
       <div className="flex flex-col items-center gap-3 py-4">
         <button
-          onClick={() => navigate('/nyaymitra/file')}
+          onClick={() => navigate('/nyaymitra/chat')}
           className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shadow-sm active:scale-95"
         >
           <Mic size={22} />
         </button>
-        <p className="text-xs text-muted-foreground">Tap to speak your request</p>
+        <p className="text-xs text-muted-foreground">Tap to ask by voice / आवाज़ से पूछें</p>
       </div>
+
+      {/* Daily Legal Dose */}
+      <DailyLegalDose language="hi" />
 
       {/* Recent Cases */}
       <div className="space-y-3">

@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Sun, Moon, Menu, X, Gavel, Building2 } from 'lucide-react'
+import { Sun, Moon, Menu, X, Gavel, Building2, User, LogOut } from 'lucide-react'
 import { useState } from 'react'
 import { useTheme } from '@/context/ThemeContext'
+import { useAuth } from '@/context/AuthContext'
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -12,6 +13,7 @@ const navLinks = [
 
 export default function Navbar() {
   const { theme, toggleTheme } = useTheme()
+  const { user, isAuthenticated, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -60,12 +62,25 @@ export default function Navbar() {
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
 
-            <button
-              onClick={() => navigate('/nyaymitra')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              Get Started
-            </button>
+            {isAuthenticated ? (
+              <div className="hidden sm:flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{user?.name}</span>
+                <button
+                  onClick={() => { logout(); navigate('/') }}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('/login')}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Get Started
+              </button>
+            )}
 
             {/* Mobile hamburger */}
             <button
@@ -96,12 +111,24 @@ export default function Navbar() {
             </Link>
           ))}
           <div className="pt-2">
-            <button
-              onClick={() => { navigate('/nyaymitra'); setMobileOpen(false) }}
-              className="w-full px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              Get Started
-            </button>
+            {isAuthenticated ? (
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm text-muted-foreground">{user?.name}</span>
+                <button
+                  onClick={() => { logout(); navigate('/'); setMobileOpen(false) }}
+                  className="text-sm text-destructive hover:underline"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { navigate('/login'); setMobileOpen(false) }}
+                className="w-full px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Get Started
+              </button>
+            )}
           </div>
         </div>
       )}
