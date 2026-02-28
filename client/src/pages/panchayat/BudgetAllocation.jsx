@@ -1,29 +1,161 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, TrendingUp, Download } from 'lucide-react'
+import { ArrowLeft, TrendingUp, Download, Save, Loader2, Plus, Trash2, AlertTriangle, History, ChevronDown, ChevronUp } from 'lucide-react'
+import axios from 'axios'
+import toast from 'react-hot-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { getUserId } from '@/utils/userId'
+import { exportBudgetPdf } from '@/utils/pdfExport'
+import { useLanguage } from '@/context/LanguageContext'
+import LanguageSelector from '@/components/LanguageSelector'
 
-const BUDGET_ITEMS = [
-  { category: 'Water & Sanitation', allocated: 350000, spent: 180000, suggested: 420000 },
-  { category: 'Road Construction', allocated: 250000, spent: 250000, suggested: 300000 },
-  { category: 'Education Infrastructure', allocated: 150000, spent: 80000, suggested: 150000 },
-  { category: 'Health & Nutrition', allocated: 100000, spent: 40000, suggested: 180000 },
-  { category: 'MGNREGA Works', allocated: 400000, spent: 310000, suggested: 400000 },
-  { category: 'Administrative', allocated: 50000, spent: 38000, suggested: 50000 },
+const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
+const YEAR = new Date().getFullYear()
+
+const DEFAULT_CATEGORIES = [
+  { category: 'Water & Sanitation', allocated: 0, spent: 0 },
+  { category: 'Road Construction', allocated: 0, spent: 0 },
+  { category: 'Education Infrastructure', allocated: 0, spent: 0 },
+  { category: 'Health & Nutrition', allocated: 0, spent: 0 },
+  { category: 'MGNREGA Works', allocated: 0, spent: 0 },
+  { category: 'Administrative', allocated: 0, spent: 0 },
 ]
 
-const TOTAL = 1500000
-
 const fmt = (n) =>
-  n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : `₹${(n / 1000).toFixed(0)}K`
+  n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(0)}K` : `₹${n}`
 
 export default function BudgetAllocation() {
-  const [showSuggested, setShowSuggested] = useState(false)
   const navigate = useNavigate()
+  const { language, translateText, translateBatch } = useLanguage()
+  const panchayatId = getUserId()
+  const [items, setItems] = useState(DEFAULT_CATEGORIES)
+  const [suggestions, setSuggestions] = useState(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [newCat, setNewCat] = useState('')
+  const [history, setHistory] = useState([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
-  const totalSpent = BUDGET_ITEMS.reduce((a, b) => a + b.spent, 0)
-  const utilisation = Math.round((totalSpent / TOTAL) * 100)
+  // ── Fetch saved budget ──
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await axios.get(`/api/budget/${panchayatId}`)
+        if (res.data?.allocations?.length) {
+          setItems(res.data.allocations)
+        }
+      } catch {
+        // no saved budget yet — use defaults
+      } finally {
+        setLoaded(true)
+      }
+    })()
+  }, [panchayatId])
+
+  // ── Save budget ──
+  const saveBudget = async () => {
+    setSaving(true)
+    try {
+      await axios.post('/api/budget', {
+        panchayatId,
+        year: YEAR,
+        allocations: items,
+      })
+      toast.success('Budget saved')
+      // refresh history if open
+      if (historyOpen) fetchHistory()
+    } catch {
+      toast.error('Failed to save budget')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ── Budget history ──
+  const fetchHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      const res = await axios.get(`/api/budget/${panchayatId}/history`)
+      setHistory(res.data.budgets || [])
+    } catch {
+      setHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const toggleHistory = () => {
+    if (!historyOpen && history.length === 0) fetchHistory()
+    setHistoryOpen(o => !o)
+  }
+
+  // ── Ask AI for suggestions ──
+  const fetchSuggestions = async () => {
+    setLoadingSuggestions(true)
+    setSuggestions(null)
+    try {
+      const currentAllocations = {}
+      items.forEach(i => { currentAllocations[i.category] = i.allocated })
+
+      const res = await axios.post(`${AI_BASE}/ai/budget/suggest`, {
+        panchayatId,
+        population: 2000,
+        current_allocations: currentAllocations,
+        grievances: [],
+        active_schemes: [],
+      }, { timeout: 60000 })
+      setSuggestions(res.data)
+
+      // Translate suggestions if not English
+      if (language !== 'en') {
+        try {
+          const s = res.data
+          const [reasoning, priorities, risks] = await Promise.all([
+            s.reasoning ? translateText(s.reasoning) : Promise.resolve(s.reasoning),
+            s.priority_areas?.length ? translateBatch(s.priority_areas) : Promise.resolve(s.priority_areas),
+            s.risk_flags?.length ? translateBatch(s.risk_flags) : Promise.resolve(s.risk_flags),
+          ])
+          setSuggestions(prev => ({ ...prev, reasoning, priority_areas: priorities, risk_flags: risks }))
+        } catch { /* keep original */ }
+      }
+
+      toast.success('AI suggestions loaded')
+    } catch {
+      toast.error('AI suggestion failed')
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
+  // ── Inline editing helpers ──
+  const updateField = (idx, field, value) => {
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: Math.max(0, Number(value) || 0) } : item))
+  }
+
+  const removeCategory = (idx) => {
+    setItems(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const addCategory = () => {
+    if (!newCat.trim()) return
+    setItems(prev => [...prev, { category: newCat.trim(), allocated: 0, spent: 0 }])
+    setNewCat('')
+  }
+
+  const totalAllocated = items.reduce((a, b) => a + b.allocated, 0)
+  const totalSpent = items.reduce((a, b) => a + b.spent, 0)
+  const utilisation = totalAllocated > 0 ? Math.round((totalSpent / totalAllocated) * 100) : 0
+
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-6">
@@ -37,23 +169,28 @@ export default function BudgetAllocation() {
       <div className="flex items-start justify-between">
         <div className="space-y-0.5">
           <h1 className="text-xl font-semibold">Budget Allocation</h1>
-          <p className="text-sm text-muted-foreground">AI-assisted planning for annual Panchayat budget</p>
+          <p className="text-sm text-muted-foreground">AI-assisted planning for FY {YEAR} Panchayat budget</p>
         </div>
-        <Button
-          variant={showSuggested ? 'default' : 'outline'}
+        <div className="flex items-center gap-3">
+          <LanguageSelector />
+          <Button
+          variant={suggestions ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setShowSuggested(!showSuggested)}
+          onClick={fetchSuggestions}
+          disabled={loadingSuggestions}
           className="gap-1.5"
         >
-          <TrendingUp size={13} /> AI Suggestions
+          {loadingSuggestions ? <Loader2 size={13} className="animate-spin" /> : <TrendingUp size={13} />}
+          AI Suggestions
         </Button>
+        </div>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-border bg-card px-4 py-4">
-          <p className="text-xs text-muted-foreground">Total Budget</p>
-          <p className="text-xl font-bold mt-1">{fmt(TOTAL)}</p>
+          <p className="text-xs text-muted-foreground">Total Allocated</p>
+          <p className="text-xl font-bold mt-1">{fmt(totalAllocated)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card px-4 py-4">
           <p className="text-xs text-muted-foreground">Spent</p>
@@ -63,68 +200,241 @@ export default function BudgetAllocation() {
           <p className="text-xs text-muted-foreground">Utilisation</p>
           <p className="text-xl font-bold mt-1">{utilisation}%</p>
           <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
-            <div className="h-full bg-foreground rounded-full" style={{ width: `${utilisation}%` }} />
+            <div className="h-full bg-foreground rounded-full" style={{ width: `${Math.min(utilisation, 100)}%` }} />
           </div>
         </div>
       </div>
 
-      {/* Budget table */}
+      {/* Budget table — editable */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Category Breakdown</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-0 divide-y divide-border">
-            {/* Header */}
-            <div className="grid grid-cols-4 pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <div className="grid grid-cols-[1fr_100px_100px_60px] pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
               <span>Category</span>
               <span className="text-right">Allocated</span>
               <span className="text-right">Spent</span>
-              <span className="text-right">{showSuggested ? 'AI Suggested' : 'Remaining'}</span>
+              <span />
             </div>
 
-            {BUDGET_ITEMS.map((item) => {
-              const remaining = item.allocated - item.spent
-              const pct = Math.round((item.spent / item.allocated) * 100)
+            {items.map((item, idx) => {
+              const pct = item.allocated > 0 ? Math.round((item.spent / item.allocated) * 100) : 0
               return (
-                <div key={item.category} className="py-3 space-y-1.5">
-                  <div className="grid grid-cols-4 text-sm items-center">
-                    <span className="font-medium">{item.category}</span>
-                    <span className="text-right text-muted-foreground">{fmt(item.allocated)}</span>
-                    <span className="text-right">{fmt(item.spent)}</span>
-                    <span className={`text-right font-medium ${showSuggested ? 'text-foreground' : remaining < 0 ? 'text-destructive' : ''}`}>
-                      {showSuggested ? fmt(item.suggested) : fmt(remaining)}
-                    </span>
+                <div key={idx} className="py-3 space-y-1.5">
+                  <div className="grid grid-cols-[1fr_100px_100px_60px] text-sm items-center gap-2">
+                    <span className="font-medium truncate">{item.category}</span>
+                    <input
+                      type="number"
+                      value={item.allocated || ''}
+                      onChange={e => updateField(idx, 'allocated', e.target.value)}
+                      placeholder="0"
+                      className="w-full text-right rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <input
+                      type="number"
+                      value={item.spent || ''}
+                      onChange={e => updateField(idx, 'spent', e.target.value)}
+                      placeholder="0"
+                      className="w-full text-right rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <button onClick={() => removeCategory(idx)} className="ml-auto p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                   <div className="h-1 rounded-full bg-border overflow-hidden">
-                    <div
-                      className="h-full bg-foreground rounded-full transition-all"
-                      style={{ width: `${Math.min(pct, 100)}%` }}
-                    />
+                    <div className="h-full bg-foreground rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
                 </div>
               )
             })}
+
+            {/* Add new category */}
+            <div className="pt-3 flex gap-2">
+              <input
+                type="text"
+                value={newCat}
+                onChange={e => setNewCat(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCategory()}
+                placeholder="New category name…"
+                className="flex-1 rounded border border-input bg-background px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <Button variant="outline" size="sm" onClick={addCategory} disabled={!newCat.trim()} className="gap-1">
+                <Plus size={12} /> Add
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {showSuggested && (
+      {/* AI Suggestions */}
+      {suggestions && (
         <Card>
-          <CardContent className="py-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1">AI Recommendation</p>
-            <p className="text-sm leading-relaxed">
-              Based on 5 pending MGNREGA wage disputes and low health expenditure, consider increasing Health &amp; Nutrition allocation by ₹80,000 and deferring road construction to next quarter pending BDO approval.
-            </p>
+          <CardContent className="py-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Recommendation</p>
+
+            {suggestions.reasoning && (
+              <p className="text-sm leading-relaxed">{suggestions.reasoning}</p>
+            )}
+
+            {suggestions.suggested_allocations && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Suggested allocations:</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  {Object.entries(suggestions.suggested_allocations).map(([cat, amt]) => (
+                    <div key={cat} className="flex justify-between border-b border-border/50 py-0.5">
+                      <span className="truncate">{cat}</span>
+                      <span className="font-medium">{fmt(Number(amt))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {suggestions.priority_areas?.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Priority areas:</p>
+                <ul className="text-xs space-y-0.5">
+                  {suggestions.priority_areas.map((p, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-primary mt-0.5">•</span> {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {suggestions.risk_flags?.length > 0 && (
+              <div className="bg-destructive/5 border border-destructive/20 rounded-md p-3 space-y-1">
+                <p className="text-xs font-medium flex items-center gap-1 text-destructive"><AlertTriangle size={12} /> Risk Flags</p>
+                <ul className="text-xs space-y-0.5">
+                  {suggestions.risk_flags.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {suggestions.per_capita_spend && (
+              <p className="text-xs text-muted-foreground">Per capita spend: <span className="font-medium">{fmt(Number(suggestions.per_capita_spend))}</span></p>
+            )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (!suggestions.suggested_allocations) return
+                setItems(prev => prev.map(item => {
+                  const suggested = suggestions.suggested_allocations[item.category]
+                  return suggested ? { ...item, allocated: Number(suggested) } : item
+                }))
+                toast.success('Applied AI suggestions')
+              }}
+            >
+              Apply Suggested Allocations
+            </Button>
           </CardContent>
         </Card>
       )}
 
       <div className="flex gap-2">
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2" onClick={() => {
+          exportBudgetPdf({ items, totalAllocated, totalSpent, utilisation, year: YEAR, panchayatId, suggestions })
+          toast.success('PDF downloaded')
+        }}>
           <Download size={14} /> Export Report
         </Button>
-        <Button>Submit for BDO Approval</Button>
+        <Button className="gap-2" onClick={saveBudget} disabled={saving}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          Save Budget
+        </Button>
+      </div>
+
+      {/* Budget History */}
+      <div>
+        <button
+          onClick={toggleHistory}
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+        >
+          <History size={14} />
+          Budget History
+          {historyOpen ? <ChevronUp size={14} className="ml-auto" /> : <ChevronDown size={14} className="ml-auto" />}
+        </button>
+
+        {historyOpen && (
+          <div className="mt-3 space-y-3">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={18} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : history.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">No budget history yet. Save your first budget to start tracking.</p>
+            ) : (
+              history.map((budget, idx) => {
+                const allocs = budget.allocations || []
+                const hTotal = allocs.reduce((s, a) => s + (a.allocated || 0), 0)
+                const hSpent = allocs.reduce((s, a) => s + (a.spent || 0), 0)
+                const hUtil = hTotal > 0 ? Math.round((hSpent / hTotal) * 100) : 0
+                const isCurrent = String(budget.year) === String(YEAR)
+
+                return (
+                  <Card key={idx} className={isCurrent ? 'border-primary/40' : ''}>
+                    <CardContent className="py-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold">FY {budget.year}</p>
+                          {isCurrent && (
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Current</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>Allocated: <span className="font-medium text-foreground">{fmt(hTotal)}</span></span>
+                          <span>Spent: <span className="font-medium text-foreground">{fmt(hSpent)}</span></span>
+                          <span>Util: <span className="font-medium text-foreground">{hUtil}%</span></span>
+                        </div>
+                      </div>
+
+                      <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                        <div className="h-full bg-foreground rounded-full transition-all" style={{ width: `${Math.min(hUtil, 100)}%` }} />
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+                        {allocs.map((a, ai) => (
+                          <div key={ai} className="flex justify-between text-xs border-b border-border/40 py-0.5">
+                            <span className="truncate text-muted-foreground">{a.category}</span>
+                            <span className="font-medium shrink-0 ml-2">{fmt(a.allocated)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-2">
+                        {!isCurrent && (
+                          <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => {
+                            setItems(allocs.map(a => ({ ...a })))
+                            toast.success(`Loaded FY ${budget.year} budget`)
+                          }}>
+                            Load as Draft
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => {
+                          exportBudgetPdf({ items: allocs, totalAllocated: hTotal, totalSpent: hSpent, utilisation: hUtil, year: budget.year, panchayatId, suggestions: null })
+                          toast.success('PDF downloaded')
+                        }}>
+                          <Download size={11} /> PDF
+                        </Button>
+                      </div>
+
+                      {budget.updatedAt && (
+                        <p className="text-[10px] text-muted-foreground">Last updated: {new Date(budget.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
