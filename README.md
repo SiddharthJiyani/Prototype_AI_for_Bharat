@@ -55,14 +55,14 @@ graph TD
     end
 
     subgraph AI["🤖 AI Service — FastAPI + Python (Port 8000)"]
-        VOICE[/ai/voice\nTranscribe + Language Detection]
-        LEGAL[/ai/legal\nCategorize + Notice Generation]
-        SCH[/ai/schemes\nScheme Matching]
-        BUD[/ai/budget\nAllocation Suggestions]
-        MEET[/ai/meetings\nGram Sabha Minutes]
-        RAG_R[/ai/rag\nAgentic Legal Chat]
-        TTS[/ai/tts + translate\nPolly + Translate]
-        FORMS[/ai/forms\nAuto Form Fill]
+        VOICE["Voice Router\nTranscribe + Language Detection"]
+        LEGAL["Legal Router\nCategorize + Notice Generation"]
+        SCH["Schemes Router\nScheme Matching"]
+        BUD["Budget Router\nAllocation Suggestions"]
+        MEET["Meetings Router\nGram Sabha Minutes"]
+        RAG_R["RAG Router\nAgentic Legal Chat"]
+        TTS["TTS + Translate\nPolly + Amazon Translate"]
+        FORMS["Forms Router\nAuto Form Fill"]
     end
 
     subgraph RAG["🧠 RAG Pipeline"]
