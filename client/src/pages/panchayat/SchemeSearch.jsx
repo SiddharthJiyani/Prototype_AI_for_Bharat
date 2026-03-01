@@ -24,6 +24,7 @@ export default function SchemeSearch() {
   const [transcribing, setTranscribing] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [speaking, setSpeaking] = useState(null)
+  const [spokenLang, setSpokenLang] = useState('en')
   const mediaRef = useRef(null)
   const chunksRef = useRef([])
 
@@ -59,7 +60,7 @@ export default function SchemeSearch() {
     try {
       const fd = new FormData()
       fd.append('file', blob, 'recording.webm')
-      fd.append('language', getTranscribeLang())
+      fd.append('language', spokenLang)
       const res = await axios.post(`${AI_BASE}/ai/voice/transcribe`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000,
@@ -148,10 +149,24 @@ export default function SchemeSearch() {
         <CardContent className="py-5 space-y-4">
           {/* Voice button */}
           <div className="flex flex-col items-center gap-2">
+            {/* Spoken language selector */}
+            <div className="flex items-center gap-2 mb-1">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">{t('spoken_language') || 'I will speak in'}:</label>
+              <select
+                value={spokenLang}
+                onChange={(e) => setSpokenLang(e.target.value)}
+                className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="en">English</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+              </select>
+            </div>
             <button
               onClick={recording ? stopRecording : startRecording}
-              disabled={transcribing || !TRANSCRIBE_LANGS.has(language)}
-              title={!TRANSCRIBE_LANGS.has(language) ? 'Voice input not available for this language' : ''}
+              disabled={transcribing}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${recording
                 ? 'bg-destructive text-destructive-foreground animate-pulse'
                 : transcribing
@@ -162,7 +177,7 @@ export default function SchemeSearch() {
               {transcribing ? <Loader2 size={22} className="animate-spin" /> : recording ? <MicOff size={22} /> : <Mic size={22} />}
             </button>
             <p className="text-xs text-muted-foreground">
-              {transcribing ? t('transcribing') : recording ? t('recording_tap_stop') : !TRANSCRIBE_LANGS.has(language) ? t('voice_not_supported') : t('tap_to_ask')}
+              {transcribing ? t('transcribing') : recording ? t('recording_tap_stop') : t('tap_to_ask')}
             </p>
           </div>
 

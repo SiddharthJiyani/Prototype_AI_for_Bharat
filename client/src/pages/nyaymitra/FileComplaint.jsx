@@ -40,6 +40,7 @@ export default function FileComplaint() {
   // guarded editor state
   const [guardedSegments, setGuardedSegments] = useState([])
   const [noticeFields, setNoticeFields] = useState({})
+  const [spokenLang, setSpokenLang] = useState('hi') // spoken language for transcription (independent of UI language)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
   const navigate = useNavigate()
@@ -103,7 +104,7 @@ export default function FileComplaint() {
     try {
       audioChunksRef.current = []
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      mediaRecorderRef.current = new MediaRecorder(stream)
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
       mediaRecorderRef.current.ondataavailable = (e) => audioChunksRef.current.push(e.data)
       mediaRecorderRef.current.start()
       setRecording(true)
@@ -122,10 +123,10 @@ export default function FileComplaint() {
         setError(null)
 
         try {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
           const formData = new FormData()
-          formData.append('audio', audioBlob)
-          formData.append('language', language)
+          formData.append('audio', audioBlob, 'recording.webm')
+          formData.append('language', spokenLang)
 
           // Call backend voice transcribe (which calls AWS Transcribe)
           const response = await axios.post('/api/voice/transcribe', formData, {
@@ -135,7 +136,7 @@ export default function FileComplaint() {
 
           setTranscript(response.data.transcript || '')
           toast.success(t('voice_transcribed'))
-          setStep(1)
+          // Stay on step 0 so user can review transcript, fill respondent, and click Generate Notice
           resolve()
         } catch (err) {
           const errMsg = err.response?.data?.error || t('transcription_failed')
@@ -509,6 +510,21 @@ export default function FileComplaint() {
           </CardHeader>
           <CardContent className="space-y-4">
 
+            {/* Spoken language selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">{t('spoken_language') || 'I will speak in'}:</label>
+              <select
+                value={spokenLang}
+                onChange={(e) => setSpokenLang(e.target.value)}
+                className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="en">English</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+              </select>
+            </div>
 
             {/* Recording UI */}
             <div className="flex flex-col items-center gap-4 py-6 border rounded-lg border-border/50 bg-secondary/30">

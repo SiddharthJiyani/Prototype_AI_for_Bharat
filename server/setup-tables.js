@@ -81,6 +81,17 @@ const TABLES = [
       { AttributeName: 'SK', AttributeType: 'S' },
     ],
   },
+  {
+    TableName: process.env.TABLE_MEETINGS || 'intgov-meetings',
+    KeySchema: [
+      { AttributeName: 'PK', KeyType: 'HASH' },
+      { AttributeName: 'SK', KeyType: 'RANGE' },
+    ],
+    AttributeDefinitions: [
+      { AttributeName: 'PK', AttributeType: 'S' },
+      { AttributeName: 'SK', AttributeType: 'S' },
+    ],
+  },
 ]
 
 async function setup() {

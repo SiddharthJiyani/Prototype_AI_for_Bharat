@@ -1,19 +1,23 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
+from pathlib import Path
+from dotenv import load_dotenv
 import boto3
 import io
 import os
 import time
 import json
-from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent / '.env', override=True)
 
 router = APIRouter()
 
+# S3 and Transcribe must use the bucket's region, not the general AWS_REGION
+s3_region = os.getenv("S3_REGION", os.getenv("AWS_REGION", "us-east-1"))
+
 transcribe = boto3.client(
     "transcribe",
-    region_name=os.getenv("AWS_REGION", "ap-south-1"),
+    region_name=s3_region,
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
 )
@@ -27,7 +31,7 @@ polly = boto3.client(
 
 s3 = boto3.client(
     "s3",
-    region_name=os.getenv("AWS_REGION", "ap-south-1"),
+    region_name=s3_region,
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
 )

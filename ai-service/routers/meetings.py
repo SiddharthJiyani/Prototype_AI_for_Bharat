@@ -18,7 +18,13 @@ async def generate_minutes(body: dict):
     attendees = body.get("attendees", [])
     meeting_type = body.get("meeting_type", "Gram Sabha")
 
-    attendee_list = ", ".join(attendees[:20]) if attendees else "Not specified"
+    # attendees may be a number (count) or a list of names
+    if isinstance(attendees, int):
+        attendee_list = f"{attendees} members"
+    elif isinstance(attendees, list) and attendees:
+        attendee_list = ", ".join(str(a) for a in attendees[:20])
+    else:
+        attendee_list = "Not specified"
 
     prompt = f"""You are an expert at generating formal Gram Sabha meeting minutes from transcripts.
 

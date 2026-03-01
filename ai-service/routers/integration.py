@@ -1,8 +1,38 @@
 from fastapi import APIRouter
-import json
+import json, re
 from .legal import invoke_bedrock
 
 router = APIRouter()
+
+
+def _extract_json(text: str) -> dict:
+    """Robustly extract the first complete JSON object from LLM output.
+    Handles markdown code fences and any trailing text after the closing brace."""
+    # strip markdown fences
+    text = re.sub(r'```(?:json)?\s*', '', text)
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found in model response")
+    depth, in_str, escape = 0, False, False
+    for i, ch in enumerate(text[start:], start):
+        if escape:
+            escape = False
+            continue
+        if ch == "\\" and in_str:
+            escape = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return json.loads(text[start:i + 1])
+    raise ValueError("Incomplete JSON object in model response")
 
 
 @router.post("/detect-patterns")
@@ -60,9 +90,7 @@ Return JSON:
 }}"""
 
     text = invoke_bedrock(prompt, max_tokens=1024)
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    return json.loads(text[start:end])
+    return _extract_json(text)
 
 
 @router.post("/cluster-analysis")
@@ -94,6 +122,4 @@ Return JSON:
 }}"""
 
     text = invoke_bedrock(prompt, max_tokens=1024)
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    return json.loads(text[start:end])
+    return _extract_json(text)

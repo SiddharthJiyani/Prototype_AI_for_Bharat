@@ -25,4 +25,5 @@ export const TABLES = {
   BUDGET: process.env.TABLE_BUDGET || 'intgov-budget',
   SCHEMES: process.env.TABLE_SCHEMES || 'intgov-schemes',
   ALERTS: process.env.TABLE_ALERTS || 'intgov-integration-alerts',
+  MEETINGS: process.env.TABLE_MEETINGS || 'intgov-meetings',
 }

@@ -336,8 +336,8 @@ export default function LegalDesk() {
     toast.success(t('ld_chat_cleared'))
   }
 
-  const sendChatMessage = async (overrideText = null) => {
-    const q = (overrideText ?? chatInput).trim()
+  const sendChatMessage = async (overrideText) => {
+    const q = (typeof overrideText === 'string' ? overrideText : chatInput).trim()
     if (!q) return
 
     if (chatContextLimitReached) {
@@ -610,7 +610,7 @@ export default function LegalDesk() {
                     {[t('ld_quick_q1'), t('ld_quick_q2'), t('ld_quick_q3'), t('ld_quick_q4')].map((q) => (
                       <button
                         key={q}
-                        onClick={() => setChatInput(q)}
+                        onClick={() => sendChatMessage(q)}
                         className="text-xs px-3 py-1.5 rounded-full border border-border hover:bg-secondary transition-colors"
                       >
                         {q}

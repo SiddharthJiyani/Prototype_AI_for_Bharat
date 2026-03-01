@@ -25,6 +25,22 @@ const C = {
 }
 
 /**
+ * Strip characters outside the Latin range that jsPDF's built-in helvetica
+ * font cannot render (e.g. Devanagari, Tamil, Telugu).
+ */
+function safeText(val) {
+  if (val == null) return ''
+  const s = typeof val === 'string' ? val : String(val)
+  // Replace non-Latin-extended characters with their closest ASCII
+  // or simply strip them so no black-square garbage appears.
+  return s.replace(/[^\u0000-\u00FF]/g, (ch) => {
+    // Very small Devanagari common words transliteration could go here,
+    // but for now indicate stripped text with a fallback marker.
+    return ''
+  }).trim() || s.replace(/[^\u0000-\u00FF]/g, '?')
+}
+
+/**
  * Format currency — uses "Rs." instead of ₹ for PDF font compatibility
  */
 function rs(n) {
@@ -151,6 +167,11 @@ function kv(doc, y, label, value, { labelWidth = 45 } = {}) {
 function numberedList(doc, y, items) {
   items.forEach((item, i) => {
     y = checkPage(doc, y, 8)
+    // Normalise: item may be a string or an object {item, decision, task, ...}
+    const rawStr = typeof item === 'string'
+      ? item
+      : (item.decision || item.item || item.task || item.topic || JSON.stringify(item))
+    const text = safeText(rawStr)
     // Number badge
     doc.setFillColor(...C.accentLight)
     doc.roundedRect(M + 1, y - 3.3, 6, 4.5, 1, 1, 'F')
@@ -162,7 +183,7 @@ function numberedList(doc, y, items) {
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...C.text)
-    const lines = doc.splitTextToSize(String(item), CW - 14)
+    const lines = doc.splitTextToSize(text, CW - 14)
     for (const line of lines) {
       y = checkPage(doc, y)
       doc.text(line, M + 10, y)
@@ -561,7 +582,9 @@ export function exportMeetingMinutesPdf({ minutes, meetingDate, location, attend
     let tx = M + 2
     let ty = y
     minutes.schemes_discussed.forEach((s) => {
-      const textW = doc.getStringUnitWidth(s) * 8 / doc.internal.scaleFactor + 6
+      const rawS = typeof s === 'string' ? s : (s.name || s.scheme || JSON.stringify(s))
+      const label = safeText(rawS)
+      const textW = doc.getStringUnitWidth(label) * 8 / doc.internal.scaleFactor + 6
       if (tx + textW > M + CW) { tx = M + 2; ty += 8 }
       ty = checkPage(doc, ty, 8)
       doc.setFillColor(...C.accentLight)
@@ -569,7 +592,7 @@ export function exportMeetingMinutesPdf({ minutes, meetingDate, location, attend
       doc.setFontSize(7.5)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(...C.accent)
-      doc.text(s, tx + 3, ty)
+      doc.text(label, tx + 3, ty)
       tx += textW + 3
     })
     y = ty + 8
@@ -578,21 +601,29 @@ export function exportMeetingMinutesPdf({ minutes, meetingDate, location, attend
   // ── Funds & Next Meeting ──
   if (minutes.funds_approved || minutes.next_meeting) {
     y = heading(doc, y, 'Other Details')
-    if (minutes.funds_approved) y = kv(doc, y, 'Funds Approved:', minutes.funds_approved)
-    if (minutes.next_meeting) y = kv(doc, y, 'Next Meeting:', minutes.next_meeting)
+    if (minutes.funds_approved) {
+      const fundsArr = Array.isArray(minutes.funds_approved)
+        ? minutes.funds_approved
+        : [minutes.funds_approved]
+      fundsArr.forEach((f) => {
+        const fStr = typeof f === 'string' ? f : [f.amount_inr, f.purpose, f.source].filter(Boolean).join(' — ')
+        y = kv(doc, y, 'Funds Approved:', safeText(fStr))
+      })
+    }
+    if (minutes.next_meeting) y = kv(doc, y, 'Next Meeting:', safeText(String(minutes.next_meeting)))
     y += 2
   }
 
   // ── Summary ──
   if (minutes.summary_hindi) {
     y = heading(doc, y, 'Summary')
-    y = highlightBox(doc, y, minutes.summary_hindi)
+    y = highlightBox(doc, y, safeText(minutes.summary_hindi))
   }
 
   // ── Original Transcript ──
   if (transcript) {
     y = heading(doc, y, 'Original Transcript')
-    y = body(doc, y, transcript, { fontSize: 7.5, color: C.textMuted })
+    y = body(doc, y, safeText(transcript), { fontSize: 7.5, color: C.textMuted })
   }
 
   addFooters(doc)

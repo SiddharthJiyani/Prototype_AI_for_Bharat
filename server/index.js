@@ -13,6 +13,7 @@ import schemesRoutes from './routes/schemes.js'
 import ecourtRoutes from './routes/ecourt.js'
 import integrationRoutes from './routes/integration.js'
 import voiceRoutes from './routes/voice.js'
+import meetingsRoutes from './routes/meetings.js'
 
 dotenv.config()
 
@@ -37,6 +38,7 @@ app.use('/api/schemes', schemesRoutes)
 app.use('/api/ecourts', ecourtRoutes)
 app.use('/api/integration', integrationRoutes)
 app.use('/api/voice', voiceRoutes)
+app.use('/api/meetings', meetingsRoutes)
 
 // Health check
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'integatedgov-server' }))

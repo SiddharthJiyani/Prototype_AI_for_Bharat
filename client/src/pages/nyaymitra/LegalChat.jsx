@@ -273,6 +273,7 @@ export default function LegalChat() {
   const [contextWarning, setContextWarning] = useState(false)
   const [contextLimitReached, setContextLimitReached] = useState(false)
   const [webSearchEnabled, setWebSearchEnabled] = useState(true)
+  const [spokenLang, setSpokenLang] = useState('hi')
   const chatEndRef = useRef(null)
   const chatContainerRef = useRef(null)
   const mediaRecorder = useRef(null)
@@ -385,6 +386,7 @@ export default function LegalChat() {
     setLoading(true)
     const formData = new FormData()
     formData.append('audio', blob, 'recording.webm')
+    formData.append('language', spokenLang)
     try {
       const res = await axios.post('/api/voice/transcribe', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -586,6 +588,19 @@ export default function LegalChat() {
       {/* ── Input bar ── */}
       <div className="border-t border-border bg-card px-4 py-3">
         <div className="flex items-center gap-2">
+          {/* Spoken language selector */}
+          <select
+            value={spokenLang}
+            onChange={(e) => setSpokenLang(e.target.value)}
+            className="text-xs bg-secondary border border-border rounded-md px-1.5 py-2 focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
+            title={t('spoken_language') || 'Spoken language'}
+          >
+            <option value="hi">हि</option>
+            <option value="en">En</option>
+            <option value="mr">मर</option>
+            <option value="ta">தம</option>
+            <option value="te">తె</option>
+          </select>
           {/* Mic */}
           <button
             onClick={recording ? stopRecording : startRecording}

@@ -7,8 +7,11 @@ import { v4 as uuidv4 } from 'uuid'
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage() })
 
-const s3 = new S3Client({ region: process.env.AWS_REGION || 'ap-south-1' })
-const transcribe = new TranscribeClient({ region: process.env.AWS_REGION || 'ap-south-1' })
+// S3 and Transcribe must share the same region; use S3_REGION (bucket location)
+// This is separate from AWS_REGION which controls DynamoDB etc.
+const s3Region = process.env.S3_REGION || process.env.AWS_REGION || 'us-east-1'
+const s3 = new S3Client({ region: s3Region })
+const transcribe = new TranscribeClient({ region: s3Region })
 
 const LANGUAGE_CODES = {
   hi: 'hi-IN',
@@ -28,7 +31,7 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
     const language = req.body.language || 'hi'
     const bucketName = process.env.S3_BUCKET || 'intgov-documents-dev'
     const jobName = `transcribe-${uuidv4()}`
-    const s3Key = `audio/${jobName}.wav`
+    const s3Key = `audio/${jobName}.webm`
 
     // Upload audio to S3
     try {
@@ -36,7 +39,7 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
         Bucket: bucketName,
         Key: s3Key,
         Body: req.file.buffer,
-        ContentType: 'audio/wav',
+        ContentType: 'audio/webm',
       }))
     } catch (s3Err) {
       console.warn('S3 upload warning:', s3Err.message)
@@ -53,8 +56,8 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
       await transcribe.send(new StartTranscriptionJobCommand({
         TranscriptionJobName: jobName,
         Media: { MediaFileUri: s3Uri },
-        LanguageCode: LANGUAGE_CODES[language] || 'en-IN',
-        OutputBucketName: bucketName,
+        MediaFormat: 'webm',
+        LanguageCode: LANGUAGE_CODES[language] || 'hi-IN',
       }))
 
       // Poll for completion (max 30 seconds)

@@ -127,9 +127,9 @@ export default function Landing() {
                       size={20}
                       className={active ? 'text-foreground' : 'text-muted-foreground'}
                     />
-                    <p className="mt-2 text-sm font-medium">{type.title}</p>
+                    <p className="mt-2 text-sm font-medium">{t(type.titleKey)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                      {type.description}
+                      {t(type.descKey)}
                     </p>
                   </button>
                 )

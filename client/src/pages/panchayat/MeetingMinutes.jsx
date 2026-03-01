@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Mic, MicOff, Download, CheckCircle2, Loader2,
-  Calendar, MapPin, Users, ClipboardList, IndianRupee,
+  Calendar, MapPin, Users, ClipboardList, IndianRupee, History, Trash2, ChevronRight,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -10,9 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { exportMeetingMinutesPdf } from '@/utils/pdfExport'
-import { useLanguage, TRANSCRIBE_LANGS } from '@/context/LanguageContext'
+import { useLanguage } from '@/context/LanguageContext'
 
 const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
+const SERVER_BASE = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
+const PANCHAYAT_ID = 'default'  // TODO: pull from user context when multi-panchayat is implemented
 
 export default function MeetingMinutes() {
   const navigate = useNavigate()
@@ -21,7 +23,12 @@ export default function MeetingMinutes() {
   const [elapsed, setElapsed] = useState(0)
   const [processing, setProcessing] = useState(false)
   const [minutes, setMinutes] = useState(null)
+  const [rawMinutes, setRawMinutes] = useState(null)   // English minutes before translation → used for PDF
   const [transcript, setTranscript] = useState('')
+  const [history, setHistory] = useState([])           // list of past meetings
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [savedId, setSavedId] = useState(null)         // meetingId after save
   const mediaRef = useRef(null)
   const chunksRef = useRef([])
   const timerRef = useRef(null)
@@ -31,8 +38,74 @@ export default function MeetingMinutes() {
   const [location, setLocation] = useState('Panchayat Bhawan')
   const [attendees, setAttendees] = useState('24')
   const [meetingType, setMeetingType] = useState('Gram Sabha')
+  const [spokenLang, setSpokenLang] = useState('hi')
 
   const fmtTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+
+  // ── Load history ──
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const res = await axios.get(`${SERVER_BASE}/api/meetings?panchayatId=${PANCHAYAT_ID}&limit=20`)
+      setHistory(res.data.meetings || [])
+    } catch { /* silently fail */ } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadHistory() }, [loadHistory])
+
+  // ── Auto-save a generated MOM ──
+  const saveMom = async (rawMins, savedTranscript) => {
+    try {
+      const res = await axios.post(`${SERVER_BASE}/api/meetings`, {
+        panchayatId: PANCHAYAT_ID,
+        meetingDate,
+        location,
+        attendees: Number(attendees) || 0,
+        meetingType,
+        transcript: savedTranscript,
+        minutes: rawMins,
+      })
+      setSavedId(res.data.meetingId)
+      loadHistory()   // refresh sidebar list
+    } catch {
+      // non-critical, don't show error toast
+    }
+  }
+
+  // ── Open a past meeting ──
+  const openPastMeeting = async (item) => {
+    try {
+      const res = await axios.get(
+        `${SERVER_BASE}/api/meetings/${PANCHAYAT_ID}/${encodeURIComponent(item.SK)}`
+      )
+      const data = res.data
+      setMeetingDate(data.meetingDate)
+      setLocation(data.location)
+      setAttendees(String(data.attendees))
+      setMeetingType(data.meetingType)
+      setTranscript(data.transcript || '')
+      setRawMinutes(data.minutes)
+      setMinutes(data.minutes)
+      setSavedId(data.meetingId)
+      setShowHistory(false)
+    } catch {
+      toast.error('Could not load meeting')
+    }
+  }
+
+  // ── Delete a past meeting ──
+  const deletePastMeeting = async (item, e) => {
+    e.stopPropagation()
+    try {
+      await axios.delete(`${SERVER_BASE}/api/meetings/${PANCHAYAT_ID}/${encodeURIComponent(item.SK)}`)
+      setHistory(prev => prev.filter(h => h.SK !== item.SK))
+      toast.success('Meeting deleted')
+    } catch {
+      toast.error('Could not delete')
+    }
+  }
 
   // ── Real audio recording ──
   const startRecording = async () => {
@@ -76,7 +149,7 @@ export default function MeetingMinutes() {
       // Step 1: Transcribe
       const fd = new FormData()
       fd.append('file', blob, 'meeting.webm')
-      fd.append('language', getTranscribeLang())
+      fd.append('language', spokenLang)
       const transcribeRes = await axios.post(`${AI_BASE}/ai/voice/transcribe`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 120000,
@@ -94,7 +167,11 @@ export default function MeetingMinutes() {
         meeting_type: meetingType,
       }, { timeout: 90000 })
 
+      setRawMinutes(minutesRes.data)   // keep English original for PDF
       setMinutes(minutesRes.data)
+
+      // Auto-save immediately (use English raw data)
+      saveMom(minutesRes.data, text)
 
       // Translate minutes to selected language if not English
       if (language !== 'en') {
@@ -133,10 +210,52 @@ export default function MeetingMinutes() {
     }
   }
 
+  // ── Retry generating minutes from saved transcript ──
+  const retryGenerate = async () => {
+    if (!transcript) return
+    setProcessing(true)
+    try {
+      const minutesRes = await axios.post(`${AI_BASE}/ai/meetings/generate-minutes`, {
+        transcript,
+        date: meetingDate,
+        location,
+        attendees: Number(attendees) || 0,
+        meeting_type: meetingType,
+      }, { timeout: 90000 })
+      setRawMinutes(minutesRes.data)
+      setMinutes(minutesRes.data)
+      saveMom(minutesRes.data, transcript)
+      if (language !== 'en') {
+        try {
+          const md = minutesRes.data
+          const [agenda, decisions, actionTasks, schemes, summary] = await Promise.all([
+            md.agenda_items?.length ? translateBatch(md.agenda_items) : Promise.resolve(md.agenda_items),
+            md.key_decisions?.length ? translateBatch(md.key_decisions) : Promise.resolve(md.key_decisions),
+            md.action_items?.length
+              ? Promise.all(md.action_items.map(async (a) => {
+                if (typeof a === 'string') return translateText(a)
+                return { ...a, task: await translateText(a.task || '') }
+              }))
+              : Promise.resolve(md.action_items),
+            md.schemes_discussed?.length ? translateBatch(md.schemes_discussed) : Promise.resolve(md.schemes_discussed),
+            md.summary_hindi ? translateText(md.summary_hindi) : Promise.resolve(md.summary_hindi),
+          ])
+          setMinutes(prev => ({ ...prev, agenda_items: agenda, key_decisions: decisions, action_items: actionTasks, schemes_discussed: schemes, summary_hindi: summary }))
+        } catch { /* keep original */ }
+      }
+      toast.success(t('minutes_generated'))
+    } catch {
+      toast.error(t('failed_generate_minutes'))
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   // ── Download as PDF ──
   const downloadMinutes = () => {
     if (!minutes) return
-    exportMeetingMinutesPdf({ minutes, meetingDate, location, attendees, meetingType, transcript })
+    // Use English (rawMinutes) so PDF fonts render correctly
+    exportMeetingMinutesPdf({ minutes: rawMinutes || minutes, meetingDate, location, attendees, meetingType, transcript })
     toast.success(t('pdf_downloaded'))
   }
 
@@ -152,9 +271,55 @@ export default function MeetingMinutes() {
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">{t('meeting_minutes_generator')}</h1>
+          <button
+            onClick={() => { setShowHistory(h => !h); if (!showHistory) loadHistory() }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 py-1.5 transition-colors"
+          >
+            <History size={13} /> Past Meetings {history.length > 0 && `(${history.length})`}
+          </button>
         </div>
         <p className="text-sm text-muted-foreground">{t('meeting_subtitle')}</p>
       </div>
+
+      {/* Past meetings panel */}
+      {showHistory && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Past Meetings</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-6"><Loader2 size={18} className="animate-spin text-muted-foreground" /></div>
+            ) : history.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">No past meetings saved yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {history.map((item) => (
+                  <button
+                    key={item.SK}
+                    onClick={() => openPastMeeting(item)}
+                    className="w-full flex items-center justify-between rounded-md px-3 py-2.5 hover:bg-secondary transition-colors text-left group"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{item.meetingType} — {item.location}</p>
+                      <p className="text-xs text-muted-foreground">{item.meetingDate} · {item.attendees} attendees</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => deletePastMeeting(item, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                      <ChevronRight size={14} className="text-muted-foreground" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Meeting metadata */}
       {!minutes && (
@@ -206,10 +371,26 @@ export default function MeetingMinutes() {
               </>
             ) : (
               <>
+                {/* Spoken language selector */}
+                {!recording && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">{t('spoken_language') || 'I will speak in'}:</label>
+                    <select
+                      value={spokenLang}
+                      onChange={(e) => setSpokenLang(e.target.value)}
+                      className="text-xs bg-secondary border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="hi">हिन्दी (Hindi)</option>
+                      <option value="en">English</option>
+                      <option value="mr">मराठी (Marathi)</option>
+                      <option value="ta">தமிழ் (Tamil)</option>
+                      <option value="te">తెలుగు (Telugu)</option>
+                    </select>
+                  </div>
+                )}
                 <button
                   onClick={recording ? stopRecording : startRecording}
-                  disabled={!TRANSCRIBE_LANGS.has(language)}
-                  title={!TRANSCRIBE_LANGS.has(language) ? 'Voice recording not supported for this language' : ''}
+                  disabled={false}
                   className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${recording
                     ? 'bg-destructive text-destructive-foreground animate-pulse'
                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -239,12 +420,20 @@ export default function MeetingMinutes() {
         </Card>
       )}
 
-      {/* Transcript preview */}
+      {/* Transcript preview + retry */}
       {transcript && !minutes && (
         <Card>
-          <CardContent className="py-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1">{t('transcript')}</p>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{transcript}</p>
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">{t('transcript')}</p>
+              <p className="text-xs text-green-600 font-medium">✓ Transcript saved</p>
+            </div>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">{transcript}</p>
+            {!processing && (
+              <Button size="sm" className="w-full gap-2" onClick={retryGenerate}>
+                <ClipboardList size={14} /> Generate Minutes from Saved Transcript
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -299,7 +488,7 @@ export default function MeetingMinutes() {
               <CardContent className="pt-0 space-y-1">
                 {minutes.agenda_items.map((item, i) => (
                   <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="shrink-0 text-muted-foreground/60">{i + 1}.</span> {item}
+                    <span className="shrink-0 text-muted-foreground/60">{i + 1}.</span> {typeof item === 'string' ? item : item.item || item.topic || JSON.stringify(item)}
                   </p>
                 ))}
               </CardContent>
@@ -314,7 +503,7 @@ export default function MeetingMinutes() {
                 {minutes.key_decisions.map((d, i) => (
                   <div key={i} className="flex items-start gap-2 text-sm">
                     <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-foreground" />
-                    <span className="text-muted-foreground">{d}</span>
+                    <span className="text-muted-foreground">{typeof d === 'string' ? d : d.decision || d.item || JSON.stringify(d)}</span>
                   </div>
                 ))}
               </CardContent>
@@ -344,7 +533,7 @@ export default function MeetingMinutes() {
                 <p className="text-xs font-semibold text-muted-foreground mb-2">{t('schemes_discussed')}</p>
                 <div className="flex flex-wrap gap-2">
                   {minutes.schemes_discussed.map((s, i) => (
-                    <Badge key={i} variant="secondary">{s}</Badge>
+                    <Badge key={i} variant="secondary">{typeof s === 'string' ? s : s.name || s.scheme || JSON.stringify(s)}</Badge>
                   ))}
                 </div>
               </CardContent>
@@ -355,11 +544,22 @@ export default function MeetingMinutes() {
           <div className="grid grid-cols-2 gap-3">
             {minutes.funds_approved && (
               <Card>
-                <CardContent className="py-4 flex items-center gap-3">
-                  <IndianRupee size={16} className="text-muted-foreground" />
-                  <div>
+                <CardContent className="py-4 flex items-start gap-3">
+                  <IndianRupee size={16} className="text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">{t('funds_approved')}</p>
-                    <p className="text-sm font-semibold mt-0.5">{minutes.funds_approved}</p>
+                    {Array.isArray(minutes.funds_approved)
+                      ? minutes.funds_approved.map((f, i) => (
+                          <p key={i} className="text-sm font-semibold">
+                            {typeof f === 'string' ? f : [f.amount_inr, f.purpose, f.source].filter(Boolean).join(' — ')}
+                          </p>
+                        ))
+                      : <p className="text-sm font-semibold mt-0.5">
+                          {typeof minutes.funds_approved === 'string'
+                            ? minutes.funds_approved
+                            : [minutes.funds_approved.amount_inr, minutes.funds_approved.purpose, minutes.funds_approved.source].filter(Boolean).join(' — ')}
+                        </p>
+                    }
                   </div>
                 </CardContent>
               </Card>
@@ -397,17 +597,26 @@ export default function MeetingMinutes() {
             </Card>
           )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => {
-              setMinutes(null)
-              setTranscript('')
-              setElapsed(0)
-            }}>
-              <Mic size={14} /> {t('record_new')}
-            </Button>
-            <Button className="gap-2" onClick={downloadMinutes}>
-              <Download size={14} /> {t('download_official_minutes')}
-            </Button>
+          <div className="flex flex-col gap-2">
+            {savedId && (
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <CheckCircle2 size={12} /> Saved to records (ID: {savedId.slice(0, 8)}…)
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => {
+                setMinutes(null)
+                setRawMinutes(null)
+                setTranscript('')
+                setElapsed(0)
+                setSavedId(null)
+              }}>
+                <Mic size={14} /> {t('record_new')}
+              </Button>
+              <Button className="gap-2" onClick={downloadMinutes}>
+                <Download size={14} /> {t('download_official_minutes')}
+              </Button>
+            </div>
           </div>
         </div>
       )}
