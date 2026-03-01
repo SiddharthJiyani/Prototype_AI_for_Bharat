@@ -8,7 +8,6 @@ import Button from '@/components/ui/Button'
 import { getUserId } from '@/utils/userId'
 import { exportBudgetPdf } from '@/utils/pdfExport'
 import { useLanguage } from '@/context/LanguageContext'
-import LanguageSelector from '@/components/LanguageSelector'
 
 const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
 const YEAR = new Date().getFullYear()
@@ -27,7 +26,7 @@ const fmt = (n) =>
 
 export default function BudgetAllocation() {
   const navigate = useNavigate()
-  const { language, translateText, translateBatch } = useLanguage()
+  const { language, t, translateText, translateBatch } = useLanguage()
   const panchayatId = getUserId()
   const [items, setItems] = useState(DEFAULT_CATEGORIES)
   const [suggestions, setSuggestions] = useState(null)
@@ -41,7 +40,7 @@ export default function BudgetAllocation() {
 
   // ── Fetch saved budget ──
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await axios.get(`/api/budget/${panchayatId}`)
         if (res.data?.allocations?.length) {
@@ -64,11 +63,11 @@ export default function BudgetAllocation() {
         year: YEAR,
         allocations: items,
       })
-      toast.success('Budget saved')
+      toast.success(t('budget_saved'))
       // refresh history if open
       if (historyOpen) fetchHistory()
     } catch {
-      toast.error('Failed to save budget')
+      toast.error(t('failed_save_budget'))
     } finally {
       setSaving(false)
     }
@@ -122,9 +121,9 @@ export default function BudgetAllocation() {
         } catch { /* keep original */ }
       }
 
-      toast.success('AI suggestions loaded')
+      toast.success(t('ai_suggestions_loaded'))
     } catch {
-      toast.error('AI suggestion failed')
+      toast.error(t('ai_suggestion_failed'))
     } finally {
       setLoadingSuggestions(false)
     }
@@ -163,41 +162,41 @@ export default function BudgetAllocation() {
         onClick={() => navigate('/panchayat')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft size={14} /> Back to Dashboard
+        <ArrowLeft size={14} /> {t('back_to_dashboard')}
       </button>
 
       <div className="flex items-start justify-between">
         <div className="space-y-0.5">
-          <h1 className="text-xl font-semibold">Budget Allocation</h1>
-          <p className="text-sm text-muted-foreground">AI-assisted planning for FY {YEAR} Panchayat budget</p>
+          <h1 className="text-xl font-semibold">{t('budget_allocation')}</h1>
+          <p className="text-sm text-muted-foreground">{t('budget_subtitle').replace('{year}', YEAR)}</p>
         </div>
         <div className="flex items-center gap-3">
-          <LanguageSelector />
+
           <Button
-          variant={suggestions ? 'default' : 'outline'}
-          size="sm"
-          onClick={fetchSuggestions}
-          disabled={loadingSuggestions}
-          className="gap-1.5"
-        >
-          {loadingSuggestions ? <Loader2 size={13} className="animate-spin" /> : <TrendingUp size={13} />}
-          AI Suggestions
-        </Button>
+            variant={suggestions ? 'default' : 'outline'}
+            size="sm"
+            onClick={fetchSuggestions}
+            disabled={loadingSuggestions}
+            className="gap-1.5"
+          >
+            {loadingSuggestions ? <Loader2 size={13} className="animate-spin" /> : <TrendingUp size={13} />}
+            {t('ai_suggestions')}
+          </Button>
         </div>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-border bg-card px-4 py-4">
-          <p className="text-xs text-muted-foreground">Total Allocated</p>
+          <p className="text-xs text-muted-foreground">{t('total_allocated')}</p>
           <p className="text-xl font-bold mt-1">{fmt(totalAllocated)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card px-4 py-4">
-          <p className="text-xs text-muted-foreground">Spent</p>
+          <p className="text-xs text-muted-foreground">{t('spent')}</p>
           <p className="text-xl font-bold mt-1">{fmt(totalSpent)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card px-4 py-4">
-          <p className="text-xs text-muted-foreground">Utilisation</p>
+          <p className="text-xs text-muted-foreground">{t('utilisation')}</p>
           <p className="text-xl font-bold mt-1">{utilisation}%</p>
           <div className="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
             <div className="h-full bg-foreground rounded-full" style={{ width: `${Math.min(utilisation, 100)}%` }} />
@@ -208,14 +207,14 @@ export default function BudgetAllocation() {
       {/* Budget table — editable */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Category Breakdown</CardTitle>
+          <CardTitle className="text-sm">{t('category_breakdown')}</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="space-y-0 divide-y divide-border">
             <div className="grid grid-cols-[1fr_100px_100px_60px] pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              <span>Category</span>
-              <span className="text-right">Allocated</span>
-              <span className="text-right">Spent</span>
+              <span>{t('category')}</span>
+              <span className="text-right">{t('allocated')}</span>
+              <span className="text-right">{t('spent')}</span>
               <span />
             </div>
 
@@ -257,11 +256,11 @@ export default function BudgetAllocation() {
                 value={newCat}
                 onChange={e => setNewCat(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addCategory()}
-                placeholder="New category name…"
+                placeholder={t('new_category_placeholder')}
                 className="flex-1 rounded border border-input bg-background px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <Button variant="outline" size="sm" onClick={addCategory} disabled={!newCat.trim()} className="gap-1">
-                <Plus size={12} /> Add
+                <Plus size={12} /> {t('add')}
               </Button>
             </div>
           </div>
@@ -272,7 +271,7 @@ export default function BudgetAllocation() {
       {suggestions && (
         <Card>
           <CardContent className="py-4 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Recommendation</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('ai_recommendation')}</p>
 
             {suggestions.reasoning && (
               <p className="text-sm leading-relaxed">{suggestions.reasoning}</p>
@@ -280,7 +279,7 @@ export default function BudgetAllocation() {
 
             {suggestions.suggested_allocations && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Suggested allocations:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t('suggested_allocations')}</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   {Object.entries(suggestions.suggested_allocations).map(([cat, amt]) => (
                     <div key={cat} className="flex justify-between border-b border-border/50 py-0.5">
@@ -294,7 +293,7 @@ export default function BudgetAllocation() {
 
             {suggestions.priority_areas?.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Priority areas:</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">{t('priority_areas')}</p>
                 <ul className="text-xs space-y-0.5">
                   {suggestions.priority_areas.map((p, i) => (
                     <li key={i} className="flex items-start gap-1.5">
@@ -307,7 +306,7 @@ export default function BudgetAllocation() {
 
             {suggestions.risk_flags?.length > 0 && (
               <div className="bg-destructive/5 border border-destructive/20 rounded-md p-3 space-y-1">
-                <p className="text-xs font-medium flex items-center gap-1 text-destructive"><AlertTriangle size={12} /> Risk Flags</p>
+                <p className="text-xs font-medium flex items-center gap-1 text-destructive"><AlertTriangle size={12} /> {t('risk_flags')}</p>
                 <ul className="text-xs space-y-0.5">
                   {suggestions.risk_flags.map((f, i) => (
                     <li key={i}>{f}</li>
@@ -317,7 +316,7 @@ export default function BudgetAllocation() {
             )}
 
             {suggestions.per_capita_spend && (
-              <p className="text-xs text-muted-foreground">Per capita spend: <span className="font-medium">{fmt(Number(suggestions.per_capita_spend))}</span></p>
+              <p className="text-xs text-muted-foreground">{t('per_capita_spend')} <span className="font-medium">{fmt(Number(suggestions.per_capita_spend))}</span></p>
             )}
 
             <Button
@@ -329,10 +328,10 @@ export default function BudgetAllocation() {
                   const suggested = suggestions.suggested_allocations[item.category]
                   return suggested ? { ...item, allocated: Number(suggested) } : item
                 }))
-                toast.success('Applied AI suggestions')
+                toast.success(t('applied_suggestions'))
               }}
             >
-              Apply Suggested Allocations
+              {t('apply_suggestions')}
             </Button>
           </CardContent>
         </Card>
@@ -343,11 +342,11 @@ export default function BudgetAllocation() {
           exportBudgetPdf({ items, totalAllocated, totalSpent, utilisation, year: YEAR, panchayatId, suggestions })
           toast.success('PDF downloaded')
         }}>
-          <Download size={14} /> Export Report
+          <Download size={14} /> {t('export_report')}
         </Button>
         <Button className="gap-2" onClick={saveBudget} disabled={saving}>
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          Save Budget
+          {t('save_budget')}
         </Button>
       </div>
 
@@ -358,7 +357,7 @@ export default function BudgetAllocation() {
           className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
         >
           <History size={14} />
-          Budget History
+          {t('budget_history')}
           {historyOpen ? <ChevronUp size={14} className="ml-auto" /> : <ChevronDown size={14} className="ml-auto" />}
         </button>
 
@@ -369,7 +368,7 @@ export default function BudgetAllocation() {
                 <Loader2 size={18} className="animate-spin text-muted-foreground" />
               </div>
             ) : history.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No budget history yet. Save your first budget to start tracking.</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">{t('no_budget_history')}</p>
             ) : (
               history.map((budget, idx) => {
                 const allocs = budget.allocations || []
@@ -385,13 +384,13 @@ export default function BudgetAllocation() {
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold">FY {budget.year}</p>
                           {isCurrent && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Current</span>
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">{t('current')}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>Allocated: <span className="font-medium text-foreground">{fmt(hTotal)}</span></span>
-                          <span>Spent: <span className="font-medium text-foreground">{fmt(hSpent)}</span></span>
-                          <span>Util: <span className="font-medium text-foreground">{hUtil}%</span></span>
+                          <span>{t('allocated')}: <span className="font-medium text-foreground">{fmt(hTotal)}</span></span>
+                          <span>{t('spent')}: <span className="font-medium text-foreground">{fmt(hSpent)}</span></span>
+                          <span>{t('utilisation')}: <span className="font-medium text-foreground">{hUtil}%</span></span>
                         </div>
                       </div>
 
@@ -414,7 +413,7 @@ export default function BudgetAllocation() {
                             setItems(allocs.map(a => ({ ...a })))
                             toast.success(`Loaded FY ${budget.year} budget`)
                           }}>
-                            Load as Draft
+                            {t('load_as_draft')}
                           </Button>
                         )}
                         <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => {
@@ -426,7 +425,7 @@ export default function BudgetAllocation() {
                       </div>
 
                       {budget.updatedAt && (
-                        <p className="text-[10px] text-muted-foreground">Last updated: {new Date(budget.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-[10px] text-muted-foreground">{t('last_updated')} {new Date(budget.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                       )}
                     </CardContent>
                   </Card>

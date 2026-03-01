@@ -504,17 +504,6 @@ export default function FormAutoFill() {
           <h1 className="text-xl font-semibold">Form Auto-Fill</h1>
           <p className="text-xs text-muted-foreground">Upload a government form — AI detects & helps fill fields</p>
         </div>
-        <select
-          value={language}
-          onChange={e => setLanguage(e.target.value)}
-          className="text-xs border border-border rounded-md px-2 py-1 bg-card"
-        >
-          <option value="en">English</option>
-          <option value="hi">हिंदी</option>
-          <option value="gu">ગુજરાતી</option>
-          <option value="ta">தமிழ்</option>
-          <option value="mr">मराठी</option>
-        </select>
       </div>
 
       {/* Upload + Actions bar */}

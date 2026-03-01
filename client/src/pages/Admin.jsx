@@ -2,6 +2,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { AlertTriangle, Scale, Building2, Users, TrendingUp, FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
+import { useLanguage } from '@/context/LanguageContext'
 
 const CASE_DATA = [
   { month: 'Nov', cases: 12 },
@@ -30,12 +31,13 @@ const STATS = [
 ]
 
 export default function Admin() {
+  const { t } = useLanguage()
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8">
       <div className="space-y-1">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Admin</p>
-        <h1 className="text-2xl font-semibold">Platform Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Cross-module insights and platform health</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('admin')}</p>
+        <h1 className="text-2xl font-semibold">{t('platform_dashboard')}</h1>
+        <p className="text-sm text-muted-foreground">{t('admin_subtitle')}</p>
       </div>
 
       {/* Stats */}
@@ -58,7 +60,7 @@ export default function Admin() {
       {/* Charts row */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-sm">Cases Filed (Monthly)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('cases_monthly')}</CardTitle></CardHeader>
           <CardContent className="pt-0">
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={CASE_DATA} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -80,7 +82,7 @@ export default function Admin() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-sm">Case Type Distribution</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('case_type_dist')}</CardTitle></CardHeader>
           <CardContent className="pt-0 space-y-2.5">
             {CASE_TYPES.map((item) => {
               const max = Math.max(...CASE_TYPES.map(c => c.count))
@@ -106,8 +108,8 @@ export default function Admin() {
       {/* Integration alerts */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Active Integration Alerts</h2>
-          <Badge variant="warning">{ALERTS.length} active</Badge>
+          <h2 className="text-sm font-semibold">{t('active_alerts')}</h2>
+          <Badge variant="warning">{ALERTS.length} {t('alert')}</Badge>
         </div>
         <div className="divide-y divide-border rounded-lg border border-border bg-card overflow-hidden">
           {ALERTS.map((alert) => (
@@ -120,7 +122,7 @@ export default function Admin() {
                 </div>
                 <p className="text-xs text-muted-foreground">{alert.message}</p>
               </div>
-              <Badge variant="warning">Alert</Badge>
+              <Badge variant="warning">{t('alert')}</Badge>
             </div>
           ))}
         </div>

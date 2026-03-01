@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
 import { v4 as uuidv4 } from 'uuid'
+import nodemailer from 'nodemailer'
 import { dynamo, TABLES } from '../config/dynamodb.js'
 
 const router = Router()
@@ -8,7 +9,7 @@ const router = Router()
 /** POST /api/cases — file a new complaint */
 router.post('/', async (req, res) => {
   try {
-    const { userId, type, description, transcript, language, notice, panchayatId } = req.body
+    const { userId, type, description, transcript, language, notice, panchayatId, lawCited, isSigned, signedAt, maskedAadhaar } = req.body
     const caseId = `LC-2026-${Math.floor(10000 + Math.random() * 90000)}`
     const now = new Date().toISOString()
 
@@ -22,6 +23,10 @@ router.post('/', async (req, res) => {
       transcript,
       language,
       notice,
+      lawCited: lawCited || null,
+      isSigned: isSigned || false,
+      signedAt: signedAt || null,
+      maskedAadhaar: maskedAadhaar || null,
       panchayatId,
       status: 'Filed',
       createdAt: now,
@@ -110,6 +115,77 @@ router.post('/:id/timeline', async (req, res) => {
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'Failed to add timeline event' })
+  }
+})
+
+/** POST /api/cases/:id/dispatch-email — send signed legal notice by email, returns 65B metadata */
+router.post('/:id/dispatch-email', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { respondentEmail, noticeText, isSigned, signedAt, maskedAadhaar, category, lawCited } = req.body
+
+    if (!respondentEmail || !noticeText) {
+      return res.status(400).json({ error: 'respondentEmail and noticeText are required' })
+    }
+
+    const sentAt = new Date().toISOString()
+    const serverIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim()
+
+    // Build email body
+    const signatureBlock = isSigned
+      ? `\n\n${'─'.repeat(60)}\nDIGITALLY SIGNED UNDER SECTION 5, INFORMATION TECHNOLOGY ACT 2000\nAadhaar (masked): ${maskedAadhaar}\nSigned At: ${new Date(signedAt).toLocaleString('en-IN')}\n${'─'.repeat(60)}`
+      : ''
+
+    const emailBody =
+      `${noticeText}${signatureBlock}\n\n` +
+      `${'─'.repeat(60)}\n` +
+      `This legal notice has been served digitally via NyayMitra — IntegratedGov AI Platform.\n` +
+      `Case ID: ${id}\n` +
+      `Dispatched At: ${new Date(sentAt).toLocaleString('en-IN')}\n` +
+      `Server IP: ${serverIp}\n` +
+      `${'─'.repeat(60)}\n` +
+      `Note: This dispatch record may be used in a Section 65B Evidence Act Certificate.`
+
+    // Send via nodemailer (Gmail App Password)
+    const transporter = nodemailer.createTransport({
+      host: process.env.MAIL_HOST || 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+    })
+
+    const info = await transporter.sendMail({
+      from: `"NyayMitra Legal AI" <${process.env.MAIL_USER}>`,
+      to: respondentEmail,
+      subject: `Legal Notice — ${category || 'Legal Matter'} [Case: ${id}]`,
+      text: emailBody,
+    })
+
+    // Update DynamoDB case record
+    const { UpdateCommand: UC } = await import('@aws-sdk/lib-dynamodb')
+    await dynamo.send(new (await import('@aws-sdk/lib-dynamodb')).UpdateCommand({
+      TableName: TABLES.CASES,
+      Key: { PK: `CASE#${id}`, SK: 'METADATA' },
+      UpdateExpression: 'SET dispatchedAt = :da, respondentEmail = :re, #s = :st, updatedAt = :ua',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':da': sentAt,
+        ':re': respondentEmail,
+        ':st': 'In Progress',
+        ':ua': sentAt,
+      },
+    }))
+
+    return res.json({
+      sentAt,
+      messageId: info.messageId,
+      serverIp,
+      respondentEmail,
+      caseId: id,
+    })
+  } catch (err) {
+    console.error('[dispatch-email]', err)
+    return res.status(500).json({ error: 'Failed to dispatch email: ' + err.message })
   }
 })
 

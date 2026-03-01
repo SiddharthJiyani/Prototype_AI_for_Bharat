@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Mic, MicOff, Search, Loader2, Download,
-  Send, FileText, CheckCircle2, ChevronDown, ChevronUp, Volume2,
+  Send, FileText, CheckCircle2, ChevronDown, ChevronUp, Volume2, ExternalLink,
 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -11,13 +11,12 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { exportSchemesPdf } from '@/utils/pdfExport'
 import { useLanguage, TRANSCRIBE_LANGS, TTS_LANGS } from '@/context/LanguageContext'
-import LanguageSelector from '@/components/LanguageSelector'
 
 const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
 
 export default function SchemeSearch() {
   const navigate = useNavigate()
-  const { language, getTranscribeLang, getTtsLang, translateText } = useLanguage()
+  const { language, t, getTranscribeLang, getTtsLang, translateText } = useLanguage()
   const [query, setQuery] = useState('')
   const [schemes, setSchemes] = useState([])
   const [loading, setLoading] = useState(false)
@@ -44,7 +43,7 @@ export default function SchemeSearch() {
       mediaRef.current = recorder
       setRecording(true)
     } catch {
-      toast.error('Microphone access denied')
+      toast.error(t('mic_denied'))
     }
   }
 
@@ -68,12 +67,12 @@ export default function SchemeSearch() {
       const transcript = res.data.transcript || res.data.text || ''
       if (transcript) {
         setQuery(transcript)
-        toast.success('Voice transcribed!')
+        toast.success(t('voice_transcribed'))
       } else {
-        toast.error('Could not transcribe audio')
+        toast.error(t('could_not_transcribe'))
       }
     } catch {
-      toast.error('Transcription failed — try typing instead')
+      toast.error(t('transcription_failed'))
     } finally {
       setTranscribing(false)
     }
@@ -81,7 +80,7 @@ export default function SchemeSearch() {
 
   // ── AI Scheme Search ──
   const searchSchemes = async () => {
-    if (!query.trim()) { toast.error('Enter or speak a query first'); return }
+    if (!query.trim()) { toast.error(t('enter_query_first')); return }
     setLoading(true)
     setSchemes([])
     try {
@@ -92,9 +91,9 @@ export default function SchemeSearch() {
       }, { timeout: 60000 })
       const results = res.data.schemes || []
       setSchemes(results)
-      if (results.length === 0) toast('No matching schemes found')
+      if (results.length === 0) toast(t('no_matching_schemes'))
     } catch {
-      toast.error('Scheme search failed')
+      toast.error(t('scheme_search_failed'))
     } finally {
       setLoading(false)
     }
@@ -116,7 +115,7 @@ export default function SchemeSearch() {
       audio.onended = () => { setSpeaking(null); URL.revokeObjectURL(url) }
       audio.play()
     } catch {
-      toast.error('Voice playback failed')
+      toast.error(t('voice_playback_failed'))
       setSpeaking(null)
     }
   }
@@ -134,15 +133,14 @@ export default function SchemeSearch() {
         onClick={() => navigate('/panchayat')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft size={14} /> Back to Dashboard
+        <ArrowLeft size={14} /> {t('back_to_dashboard')}
       </button>
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Scheme Navigator</h1>
-          <LanguageSelector showCapabilities />
+          <h1 className="text-xl font-semibold">{t('scheme_navigator')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">Ask about government schemes in your language — voice or text</p>
+        <p className="text-sm text-muted-foreground">{t('scheme_subtitle')}</p>
       </div>
 
       {/* Query input */}
@@ -154,18 +152,17 @@ export default function SchemeSearch() {
               onClick={recording ? stopRecording : startRecording}
               disabled={transcribing || !TRANSCRIBE_LANGS.has(language)}
               title={!TRANSCRIBE_LANGS.has(language) ? 'Voice input not available for this language' : ''}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${
-                recording
-                  ? 'bg-destructive text-destructive-foreground animate-pulse'
-                  : transcribing
-                    ? 'bg-secondary text-muted-foreground cursor-wait'
-                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }`}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${recording
+                ? 'bg-destructive text-destructive-foreground animate-pulse'
+                : transcribing
+                  ? 'bg-secondary text-muted-foreground cursor-wait'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
             >
               {transcribing ? <Loader2 size={22} className="animate-spin" /> : recording ? <MicOff size={22} /> : <Mic size={22} />}
             </button>
             <p className="text-xs text-muted-foreground">
-              {transcribing ? 'Transcribing...' : recording ? 'Recording… Tap to stop' : !TRANSCRIBE_LANGS.has(language) ? 'Voice not supported for this language — type instead' : 'Tap to ask by voice'}
+              {transcribing ? t('transcribing') : recording ? t('recording_tap_stop') : !TRANSCRIBE_LANGS.has(language) ? t('voice_not_supported') : t('tap_to_ask')}
             </p>
           </div>
 
@@ -176,11 +173,11 @@ export default function SchemeSearch() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && searchSchemes()}
-              placeholder="Or type your question about schemes… / योजनाओं के बारे में पूछें"
+              placeholder={t('search_placeholder')}
               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <Button onClick={searchSchemes} disabled={loading || !query.trim()} loading={loading}>
-              <Search size={14} /> Search
+              <Search size={14} /> {t('search')}
             </Button>
           </div>
 
@@ -191,7 +188,7 @@ export default function SchemeSearch() {
                 <Mic size={11} className="text-primary-foreground" />
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-0.5">Your Question:</p>
+                <p className="text-xs font-medium text-muted-foreground mb-0.5">{t('your_question')}</p>
                 <p className="text-sm leading-relaxed">{query}</p>
               </div>
             </div>
@@ -204,8 +201,8 @@ export default function SchemeSearch() {
         <Card>
           <CardContent className="py-8 text-center">
             <Loader2 size={24} className="animate-spin text-primary mx-auto mb-3" />
-            <p className="text-sm font-medium">Searching schemes with AI...</p>
-            <p className="text-xs text-muted-foreground mt-1">Matching your needs to 15+ government schemes</p>
+            <p className="text-sm font-medium">{t('searching_schemes')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('matching_schemes')}</p>
           </CardContent>
         </Card>
       )}
@@ -214,8 +211,8 @@ export default function SchemeSearch() {
       {schemes.length > 0 && !loading && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">AI Recommendations</h2>
-            <span className="text-xs text-muted-foreground">{schemes.length} schemes found</span>
+            <h2 className="text-sm font-semibold">{t('ai_recommendations')}</h2>
+            <span className="text-xs text-muted-foreground">{schemes.length} {t('schemes_found')}</span>
           </div>
 
           {schemes.map((scheme, idx) => {
@@ -241,26 +238,37 @@ export default function SchemeSearch() {
                         onClick={() => speakScheme(scheme, idx)}
                         disabled={speaking !== null}
                         className="p-1.5 rounded-md hover:bg-secondary transition-colors"
-                        title="Read aloud"
+                        title={t('read_aloud')}
                       >
                         {speaking === idx ? <Loader2 size={13} className="animate-spin" /> : <Volume2 size={13} className="text-muted-foreground" />}
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-3 gap-2 text-xs items-end">
                     <div>
-                      <p className="text-muted-foreground">Benefit</p>
+                      <p className="text-muted-foreground">{t('benefit')}</p>
                       <p className="font-medium mt-0.5">{scheme.benefit}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Funding</p>
+                      <p className="text-muted-foreground">{t('funding')}</p>
                       <p className="font-medium mt-0.5">{scheme.funding_source || 'Central'}</p>
+                    </div>
+                    <div>
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(scheme.name)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-2xl border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors text-xs font-medium w-fit"
+                      >
+                        <ExternalLink size={10} />
+                        {t('view_on_google')}
+                      </a>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Eligibility</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">{t('eligibility')}</p>
                     <p className="text-xs">{scheme.eligibility}</p>
                   </div>
 
@@ -269,14 +277,14 @@ export default function SchemeSearch() {
                     className="flex items-center gap-1 text-xs text-primary hover:underline"
                   >
                     {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    {isExpanded ? 'Less details' : 'More details'}
+                    {isExpanded ? t('less_details') : t('more_details')}
                   </button>
 
                   {isExpanded && (
                     <div className="space-y-3 pt-1 border-t border-border">
                       {scheme.required_docs?.length > 0 && (
                         <div>
-                          <p className="text-xs text-muted-foreground mb-1">Required Documents:</p>
+                          <p className="text-xs text-muted-foreground mb-1">{t('required_documents')}</p>
                           <ul className="space-y-0.5">
                             {scheme.required_docs.map((doc, di) => (
                               <li key={di} className="text-xs text-muted-foreground flex items-start gap-1.5">
@@ -287,7 +295,7 @@ export default function SchemeSearch() {
                         </div>
                       )}
                       <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Next Steps:</p>
+                        <p className="text-xs text-muted-foreground mb-0.5">{t('next_steps')}</p>
                         <p className="text-xs">{scheme.next_steps}</p>
                       </div>
                     </div>
@@ -306,7 +314,7 @@ export default function SchemeSearch() {
                 toast.success('PDF downloaded')
               }}
             >
-              <Download size={14} /> Download Report
+              <Download size={14} /> {t('download_report')}
             </Button>
           </div>
         </div>

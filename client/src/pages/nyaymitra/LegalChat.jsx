@@ -11,16 +11,11 @@ import Badge from '@/components/ui/Badge'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { useLanguage, LANGUAGES } from '@/context/LanguageContext'
 
 const MAX_CONTEXT_MESSAGES = 20
 
-const LANGUAGES = [
-  { code: 'hi', label: 'हिंदी' },
-  { code: 'en', label: 'English' },
-  { code: 'mr', label: 'मराठी' },
-  { code: 'ta', label: 'தமிழ்' },
-  { code: 'te', label: 'తెలుగు' },
-]
+
 
 const QUICK_QUESTIONS = [
   { label: 'मनरेगा मजदूरी', text: 'मनरेगा में मजदूरी नहीं मिली तो क्या करें?' },
@@ -111,13 +106,12 @@ function AIMessage({ msg, onSpeak, speaking }) {
                 </span>
               )}
               {msg.agentTrace?.confidence && (
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
-                  msg.agentTrace.confidence === 'high'
-                    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/50'
-                    : msg.agentTrace.confidence === 'medium'
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${msg.agentTrace.confidence === 'high'
+                  ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/50'
+                  : msg.agentTrace.confidence === 'medium'
                     ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/50'
                     : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50'
-                }`}>
+                  }`}>
                   {msg.agentTrace.confidence} confidence
                 </span>
               )}
@@ -219,11 +213,10 @@ function AIMessage({ msg, onSpeak, speaking }) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => onSpeak(msg.content)}
-            className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-              speaking
-                ? 'border-primary/30 bg-primary/5 text-primary'
-                : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
-            }`}
+            className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border transition-colors ${speaking
+              ? 'border-primary/30 bg-primary/5 text-primary'
+              : 'border-border text-muted-foreground hover:border-primary/30 hover:text-foreground'
+              }`}
           >
             {speaking ? <VolumeX size={11} /> : <Volume2 size={11} />}
             {speaking ? 'Stop' : 'Listen / सुनें'}
@@ -270,10 +263,10 @@ function UserMessage({ msg }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LegalChat() {
+  const { language, setLanguage, t } = useLanguage()
   const navigate = useNavigate()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
-  const [language, setLanguage] = useState('hi')
   const [loading, setLoading] = useState(false)
   const [recording, setRecording] = useState(false)
   const [speaking, setSpeaking] = useState(false)
@@ -300,7 +293,7 @@ export default function LegalChat() {
     setContextWarning(false)
     setContextLimitReached(false)
     setInput('')
-    toast.success('New chat started / नई चैट शुरू')
+    toast.success(t('new_chat_started'))
   }
 
   const sendMessage = async (text = null) => {
@@ -308,7 +301,7 @@ export default function LegalChat() {
     if (!question) return
 
     if (contextLimitReached) {
-      toast.error('Context limit reached! Please start a new chat for better responses.')
+      toast.error(t('context_limit_toast'))
       return
     }
 
@@ -351,10 +344,10 @@ export default function LegalChat() {
       }
     } catch (err) {
       console.error(err)
-      toast.error('Could not get response. Please try again.')
+      toast.error(t('response_failed'))
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, an error occurred. Please try again.', timestamp: new Date() },
+        { role: 'assistant', content: t('response_failed'), timestamp: new Date() },
       ])
     } finally {
       setLoading(false)
@@ -375,9 +368,9 @@ export default function LegalChat() {
       mr.start()
       mediaRecorder.current = mr
       setRecording(true)
-      toast('🎤 Recording... Speak now / बोलें...', { duration: 2000 })
+      toast(`🎤 ${t('recording_started')}`, { duration: 2000 })
     } catch (err) {
-      toast.error('Microphone access denied')
+      toast.error(t('mic_denied'))
     }
   }
 
@@ -399,13 +392,13 @@ export default function LegalChat() {
       const transcript = res.data.transcript || ''
       if (transcript) {
         setInput(transcript)
-        toast.success('Voice recognized! / आवाज पहचानी गई!')
+        toast.success(t('voice_recognized'))
         sendMessage(transcript)
       } else {
-        toast.error('Could not understand. Try again.')
+        toast.error(t('could_not_understand'))
       }
     } catch {
-      toast.error('Voice transcription failed')
+      toast.error(t('voice_transcription_failed'))
     } finally {
       setLoading(false)
     }
@@ -426,7 +419,7 @@ export default function LegalChat() {
       audio.onended = () => setSpeaking(false)
       audio.play()
     } catch {
-      toast.error('Text-to-speech unavailable')
+      toast.error(t('tts_unavailable'))
       setSpeaking(false)
     }
   }
@@ -448,10 +441,10 @@ export default function LegalChat() {
               <Scale size={14} className="text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold leading-tight">NyayMitra Legal Chat</h1>
+              <h1 className="text-sm font-semibold leading-tight">{t('legal_assistant')}</h1>
               <p className="text-[10px] text-muted-foreground leading-tight">
-                AI Legal Assistant
-                {webSearchEnabled && <span className="ml-1 text-green-600 dark:text-green-400">· Web Search ON</span>}
+                AI {t('legal_assistant')}
+                {webSearchEnabled && <span className="ml-1 text-green-600 dark:text-green-400">· {t('web_search_on')}</span>}
               </p>
             </div>
           </div>
@@ -462,13 +455,12 @@ export default function LegalChat() {
           <button
             onClick={() => {
               setWebSearchEnabled(!webSearchEnabled)
-              toast(webSearchEnabled ? 'Web search disabled' : 'Web search enabled — answers will include latest info')
+              toast(webSearchEnabled ? t('web_search_disabled') : t('web_search_enabled'))
             }}
-            className={`p-1.5 rounded-lg transition-colors text-xs font-medium flex items-center gap-1 ${
-              webSearchEnabled
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50'
-                : 'text-muted-foreground hover:bg-secondary border border-transparent'
-            }`}
+            className={`p-1.5 rounded-lg transition-colors text-xs font-medium flex items-center gap-1 ${webSearchEnabled
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50'
+              : 'text-muted-foreground hover:bg-secondary border border-transparent'
+              }`}
             title={webSearchEnabled ? 'Disable web search' : 'Enable web search'}
           >
             <Search size={13} />
@@ -492,7 +484,7 @@ export default function LegalChat() {
               className="text-xs bg-transparent border-none focus:outline-none text-muted-foreground cursor-pointer pr-1"
             >
               {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>{l.label}</option>
+                <option key={l.code} value={l.code}>{l.native}</option>
               ))}
             </select>
           </div>
@@ -505,9 +497,8 @@ export default function LegalChat() {
           <div className="flex items-center gap-2.5">
             <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  contextLimitReached ? 'bg-destructive' : contextWarning ? 'bg-amber-500' : 'bg-primary/40'
-                }`}
+                className={`h-full rounded-full transition-all duration-500 ${contextLimitReached ? 'bg-destructive' : contextWarning ? 'bg-amber-500' : 'bg-primary/40'
+                  }`}
                 style={{ width: `${contextPercent}%` }}
               />
             </div>
@@ -522,13 +513,13 @@ export default function LegalChat() {
       {contextWarning && !contextLimitReached && (
         <div className="mx-4 mt-2 flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
           <AlertTriangle size={13} className="shrink-0" />
-          <span>Context getting long. <button onClick={startNewChat} className="underline font-semibold">Start a new chat</button> for best results.</span>
+          <span>{t('context_warning_msg')} <button onClick={startNewChat} className="underline font-semibold">{t('start_new_chat')}</button></span>
         </div>
       )}
       {contextLimitReached && (
         <div className="mx-4 mt-2 flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 text-xs text-destructive">
           <AlertTriangle size={13} className="shrink-0" />
-          <span>Context limit reached. <button onClick={startNewChat} className="underline font-semibold">Start a new chat</button> for accurate responses.</span>
+          <span>{t('context_limit_msg')} <button onClick={startNewChat} className="underline font-semibold">{t('start_new_chat')}</button></span>
         </div>
       )}
 
@@ -542,16 +533,13 @@ export default function LegalChat() {
               <Scale size={28} className="text-primary" />
             </div>
             <div className="space-y-1.5">
-              <h2 className="text-lg font-semibold">Welcome to NyayMitra</h2>
+              <h2 className="text-lg font-semibold">{t('legal_assistant')}</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Ask any legal question in Hindi or English. You can also use voice input.
-              </p>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                कोई भी कानूनी सवाल पूछें — हिंदी या अंग्रेज़ी में।
+                {t('chat_subtitle')}
               </p>
               {webSearchEnabled && (
                 <p className="text-xs text-green-600 dark:text-green-400 flex items-center justify-center gap-1 pt-1">
-                  <Search size={11} /> Web search on — includes latest legal updates
+                  <Search size={11} /> {t('web_search_on')}
                 </p>
               )}
             </div>
@@ -586,7 +574,7 @@ export default function LegalChat() {
             <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 size={14} className="animate-spin" />
-                {webSearchEnabled ? 'Searching & thinking... / खोज रहा हूं...' : 'Thinking... / सोच रहा हूं...'}
+                {webSearchEnabled ? t('chat_searching') : t('chat_thinking')}
               </div>
             </div>
           </div>
@@ -602,11 +590,10 @@ export default function LegalChat() {
           <button
             onClick={recording ? stopRecording : startRecording}
             disabled={loading || contextLimitReached}
-            className={`p-2.5 rounded-full transition-colors shrink-0 ${
-              recording
-                ? 'bg-destructive text-destructive-foreground animate-pulse'
-                : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80'
-            }`}
+            className={`p-2.5 rounded-full transition-colors shrink-0 ${recording
+              ? 'bg-destructive text-destructive-foreground animate-pulse'
+              : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+              }`}
           >
             {recording ? <MicOff size={17} /> : <Mic size={17} />}
           </button>
@@ -619,10 +606,8 @@ export default function LegalChat() {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder={
               contextLimitReached
-                ? 'Context limit reached — start a new chat'
-                : language === 'hi'
-                ? 'अपना सवाल पूछें...'
-                : 'Ask your legal question...'
+                ? t('context_limit_msg')
+                : t('type_legal_question')
             }
             disabled={loading || contextLimitReached}
             className="flex-1 px-4 py-2.5 rounded-full border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -648,7 +633,7 @@ export default function LegalChat() {
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground mt-2">
-          NyayMitra provides legal information, not legal advice. Consult a lawyer for specific cases.
+          {t('ai_assistant_general')}
         </p>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useLanguage } from '@/context/LanguageContext'
 import {
   Upload, FileText, HelpCircle, Clock, TrendingUp,
   BookOpen, MessageSquare, Loader2, ArrowLeft, ChevronRight,
@@ -16,16 +17,17 @@ import toast from 'react-hot-toast'
 import { getUserId } from '@/utils/userId'
 
 const TABS = [
-  { id: 'summary', label: 'Summary', labelHi: 'सारांश', icon: FileText },
-  { id: 'faq', label: 'FAQ', labelHi: 'सवाल-जवाब', icon: HelpCircle },
-  { id: 'timeline', label: 'Timeline', labelHi: 'समयरेखा', icon: Clock },
-  { id: 'predictive', label: 'Prediction', labelHi: 'भविष्यवाणी', icon: TrendingUp },
-  { id: 'caselaw', label: 'Case Law', labelHi: 'केस कानून', icon: BookOpen },
-  { id: 'chat', label: 'Chat', labelHi: 'चैट', icon: MessageSquare },
+  { id: 'summary', labelKey: 'ld_tab_summary', icon: FileText },
+  { id: 'faq', labelKey: 'ld_tab_faq', icon: HelpCircle },
+  { id: 'timeline', labelKey: 'ld_tab_timeline', icon: Clock },
+  { id: 'predictive', labelKey: 'ld_tab_prediction', icon: TrendingUp },
+  { id: 'caselaw', labelKey: 'ld_tab_caselaw', icon: BookOpen },
+  { id: 'chat', labelKey: 'ld_tab_chat', icon: MessageSquare },
 ]
 
 // ─── Collapsible action steps for doc-chat messages ─────────────────────────
 function DocChatActionSteps({ steps }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   return (
     <div className="border border-border/60 rounded-lg overflow-hidden">
@@ -38,7 +40,7 @@ function DocChatActionSteps({ steps }) {
           <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-govgreen-100 dark:bg-govgreen-900/30 text-govgreen-700 dark:text-govgreen-400 text-[9px] font-bold">
             {steps.length}
           </span>
-          Recommended Steps
+          {t('ld_rec_steps')}
         </span>
         {open ? <ChevronUp size={13} className="text-muted-foreground" /> : <ChevronDown size={13} className="text-muted-foreground" />}
       </button>
@@ -62,6 +64,7 @@ function DocChatActionSteps({ steps }) {
 
 export default function LegalDesk() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const fileRef = useRef(null)
   const chatEndRef = useRef(null)
   const chatContainerRef = useRef(null)
@@ -162,9 +165,9 @@ export default function LegalDesk() {
       setCurrentDocId(doc.docId)
       setActiveTab('summary')
       setStep(1)
-      toast.success(`Loaded: ${doc.fileName}`)
+      toast.success(`${t('ld_doc_loaded')}: ${doc.fileName}`)
     } catch {
-      toast.error('Failed to load document')
+      toast.error(t('ld_doc_load_failed'))
     } finally {
       setLoading((prev) => ({ ...prev, history: false }))
     }
@@ -178,9 +181,9 @@ export default function LegalDesk() {
       if (currentDocId === docId) {
         resetToUpload()
       }
-      toast.success('Document deleted')
+      toast.success(t('ld_doc_deleted'))
     } catch {
-      toast.error('Failed to delete')
+      toast.error(t('ld_doc_delete_failed'))
     }
   }
 
@@ -202,7 +205,7 @@ export default function LegalDesk() {
     const ext = file.name.toLowerCase().split('.').pop()
     const supported = ['pdf', 'docx', 'doc', 'txt', 'md']
     if (!supported.includes(ext)) {
-      toast.error('Unsupported file type. Please upload PDF, Word, or text files.')
+      toast.error(t('ld_unsupported_type'))
       return
     }
 
@@ -215,7 +218,7 @@ export default function LegalDesk() {
       setStep(1)
       setAnalyses({})
       setChatMessages([])
-      toast.success(`Loaded: ${file.name}`)
+      toast.success(`${t('ld_doc_loaded')}: ${file.name}`)
       // Save to history and run summary
       const docId = await saveDocument(null, {
         fileName: file.name,
@@ -229,7 +232,7 @@ export default function LegalDesk() {
 
     // PDF / DOCX — upload to backend for parsing
     setLoading((prev) => ({ ...prev, upload: true }))
-    toast('Uploading & extracting text... / टेक्स्ट निकाल रहे हैं...', { duration: 3000 })
+    toast(t('ld_extracting_toast'), { duration: 3000 })
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -254,7 +257,7 @@ export default function LegalDesk() {
       setAnalyses({ summary: summaryData })
       setChatMessages([])
       setStep(1)
-      toast.success(`Loaded: ${file.name} (${res.data.chunks_added} sections extracted)`)
+      toast.success(`${t('ld_doc_loaded')}: ${file.name} (${res.data.chunks_added} sections extracted)`)
 
       // Save to history
       await saveDocument(null, {
@@ -265,7 +268,7 @@ export default function LegalDesk() {
       })
     } catch (err) {
       console.error(err)
-      toast.error('Failed to process file. Please try again.')
+      toast.error(t('ld_process_failed'))
     } finally {
       setLoading((prev) => ({ ...prev, upload: false }))
     }
@@ -273,7 +276,7 @@ export default function LegalDesk() {
 
   const handlePaste = async () => {
     if (!documentText.trim()) {
-      toast.error('Please paste some text first / पहले टेक्स्ट पेस्ट करें')
+      toast.error(t('ld_paste_error'))
       return
     }
     setFileName('Pasted Document')
@@ -311,7 +314,7 @@ export default function LegalDesk() {
       })
     } catch (err) {
       console.error(err)
-      toast.error(`Analysis failed: ${type}`)
+      toast.error(`${t('ld_analysis_failed')}: ${type}`)
     } finally {
       setLoading((prev) => ({ ...prev, [type]: false }))
     }
@@ -330,7 +333,7 @@ export default function LegalDesk() {
     setChatContextWarning(false)
     setChatContextLimitReached(false)
     setChatInput('')
-    toast.success('Chat cleared / चैट साफ़ की गई')
+    toast.success(t('ld_chat_cleared'))
   }
 
   const sendChatMessage = async (overrideText = null) => {
@@ -338,7 +341,7 @@ export default function LegalDesk() {
     if (!q) return
 
     if (chatContextLimitReached) {
-      toast.error('Context limit reached — please clear the chat.')
+      toast.error(t('ld_context_limit_error'))
       return
     }
 
@@ -402,12 +405,12 @@ export default function LegalDesk() {
   const timeAgo = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime()
     const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'Just now'
-    if (mins < 60) return `${mins}m ago`
+    if (mins < 1) return t('ld_just_now')
+    if (mins < 60) return `${mins}m`
     const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
+    if (hrs < 24) return `${hrs}h`
     const days = Math.floor(hrs / 24)
-    if (days < 7) return `${days}d ago`
+    if (days < 7) return `${days}d`
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
   }
 
@@ -423,14 +426,12 @@ export default function LegalDesk() {
           </button>
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">NyayMitra</p>
-            <h1 className="text-xl font-semibold">Legal Desk / कानूनी डेस्क</h1>
+            <h1 className="text-xl font-semibold">{t('ld_title')}</h1>
           </div>
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Upload a legal document to get instant AI-powered analysis — summary, FAQ, timeline, prediction, and case law references.
-          <br />
-          <span className="text-xs">कानूनी दस्तावेज़ अपलोड करें और AI विश्लेषण पाएं</span>
+          {t('ld_subtitle')}
         </p>
 
         {/* Upload area */}
@@ -441,11 +442,11 @@ export default function LegalDesk() {
               className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-secondary/30 transition-colors"
             >
               <Upload size={32} className="mx-auto text-muted-foreground mb-3" />
-              <p className="text-sm font-medium">Click to upload document / दस्तावेज़ अपलोड करें</p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, Word (.docx), or Text files supported</p>
+              <p className="text-sm font-medium">{t('ld_upload_click')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('ld_upload_supported')}</p>
               {loading.upload && (
                 <div className="flex items-center gap-2 justify-center mt-2 text-xs text-primary">
-                  <Loader2 size={14} className="animate-spin" /> Extracting text...
+                  <Loader2 size={14} className="animate-spin" /> {t('ld_extracting')}
                 </div>
               )}
               <input
@@ -463,20 +464,20 @@ export default function LegalDesk() {
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">OR paste text / या टेक्स्ट पेस्ट करें</span>
+            <span className="text-xs text-muted-foreground">{t('ld_or_paste')}</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
           <textarea
             value={documentText}
             onChange={(e) => setDocumentText(e.target.value)}
-            placeholder="Paste your legal document text here..."
+            placeholder={t('ld_paste_placeholder')}
             rows={5}
             className="w-full px-4 py-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
           />
 
           <Button onClick={handlePaste} disabled={!documentText.trim()} className="w-full" size="lg">
-            Analyze Document / विश्लेषण करें <ChevronRight size={16} />
+            {t('ld_analyze_btn')} <ChevronRight size={16} />
           </Button>
         </div>
 
@@ -484,22 +485,22 @@ export default function LegalDesk() {
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <History size={15} /> Recent Documents / पिछले दस्तावेज़
+              <History size={15} /> {t('ld_recent_docs')}
             </h2>
             <button onClick={loadHistory} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              <RefreshCw size={11} /> Refresh
+              <RefreshCw size={11} /> {t('ld_refresh')}
             </button>
           </div>
 
           {historyLoading ? (
             <div className="text-center py-8 text-muted-foreground">
               <Loader2 size={18} className="animate-spin mx-auto mb-2" />
-              <p className="text-xs">Loading history...</p>
+              <p className="text-xs">{t('ld_loading_history')}</p>
             </div>
           ) : history.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-lg">
               <FolderOpen size={24} className="mx-auto mb-2 opacity-50" />
-              <p className="text-xs">No documents yet. Upload one above to get started.</p>
+              <p className="text-xs">{t('ld_no_docs')}</p>
             </div>
           ) : (
             <div className="grid gap-2">
@@ -547,12 +548,12 @@ export default function LegalDesk() {
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 className="text-lg font-semibold">Legal Desk Analysis</h1>
+            <h1 className="text-lg font-semibold">{t('ld_analysis_header')}</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <FileText size={11} /> {fileName}
               {currentDocId && (
                 <span className="text-[10px] bg-govgreen-100 dark:bg-govgreen-900/30 text-govgreen-700 dark:text-govgreen-400 px-1.5 py-0.5 rounded ml-1">
-                  Saved
+                  {t('ld_saved')}
                 </span>
               )}
             </p>
@@ -560,7 +561,7 @@ export default function LegalDesk() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={resetToUpload}>
-            <Upload size={14} /> New
+            <Upload size={14} /> {t('ld_new')}
           </Button>
         </div>
       </div>
@@ -581,8 +582,7 @@ export default function LegalDesk() {
               }`}
             >
               <Icon size={13} />
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">{tab.labelHi}</span>
+              <span>{t(tab.labelKey)}</span>
               {analyses[tab.id] && <span className="w-1.5 h-1.5 rounded-full bg-govgreen-500" />}
             </button>
           )
@@ -594,7 +594,7 @@ export default function LegalDesk() {
         {loading[activeTab] ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
             <Loader2 size={24} className="animate-spin" />
-            <p className="text-sm">Analyzing... / विश्लेषण हो रहा है...</p>
+            <p className="text-sm">{t('ld_analyzing')}</p>
           </div>
         ) : activeTab === 'chat' ? (
           /* ─── Chat Tab ─── */
@@ -604,10 +604,10 @@ export default function LegalDesk() {
                 <div className="text-center py-12 space-y-3">
                   <MessageSquare size={28} className="mx-auto text-muted-foreground opacity-50" />
                   <p className="text-sm text-muted-foreground">
-                    Ask questions about your document / दस्तावेज़ के बारे में सवाल पूछें
+                    {t('ld_chat_empty')}
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    {['Summarize this case', 'Who are the parties?', 'What is the court order?', 'What should I do next?'].map((q) => (
+                    {[t('ld_quick_q1'), t('ld_quick_q2'), t('ld_quick_q3'), t('ld_quick_q4')].map((q) => (
                       <button
                         key={q}
                         onClick={() => setChatInput(q)}
@@ -682,7 +682,7 @@ export default function LegalDesk() {
               {chatLoading && (
                 <div className="flex justify-start">
                   <div className="bg-secondary rounded-xl px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 size={12} className="animate-spin" /> Thinking...
+                    <Loader2 size={12} className="animate-spin" /> {t('ld_chat_thinking')}
                   </div>
                 </div>
               )}
@@ -693,13 +693,13 @@ export default function LegalDesk() {
             {chatContextWarning && !chatContextLimitReached && (
               <div className="flex items-center gap-2 text-xs bg-saffron-50 dark:bg-saffron-900/20 border border-saffron-200 dark:border-saffron-800/50 rounded-lg px-3 py-2 text-saffron-800 dark:text-saffron-300">
                 <AlertTriangle size={12} className="shrink-0" />
-                <span>Context is getting long. <button onClick={clearDocChat} className="underline font-medium">Clear chat</button> for better answers.</span>
+                <span>{t('ld_context_warning')} <button onClick={clearDocChat} className="underline font-medium">{t('ld_chat_clear')}</button></span>
               </div>
             )}
             {chatContextLimitReached && (
               <div className="flex items-center gap-2 text-xs bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 text-destructive">
                 <AlertTriangle size={12} className="shrink-0" />
-                <span>Context limit reached! <button onClick={clearDocChat} className="underline font-medium">Clear chat</button> for better results.</span>
+                <span>{t('ld_context_limit')} <button onClick={clearDocChat} className="underline font-medium">{t('ld_chat_clear')}</button></span>
               </div>
             )}
 
@@ -709,7 +709,7 @@ export default function LegalDesk() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
-                placeholder={chatContextLimitReached ? 'Context limit reached — clear the chat' : 'Ask about this document...'}
+                placeholder={chatContextLimitReached ? t('ld_chat_placeholder_limit') : t('ld_chat_placeholder')}
                 disabled={chatContextLimitReached}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
@@ -719,7 +719,7 @@ export default function LegalDesk() {
                 </Button>
               )}
               <Button onClick={sendChatMessage} disabled={chatLoading || !chatInput.trim() || chatContextLimitReached}>
-                <MessageSquare size={14} /> Ask
+                <MessageSquare size={14} /> {t('ld_chat_ask')}
               </Button>
             </div>
           </div>
@@ -728,9 +728,9 @@ export default function LegalDesk() {
           <AnalysisResult type={activeTab} data={analyses[activeTab]} />
         ) : (
           <div className="text-center text-muted-foreground py-20">
-            <p className="text-sm">Click to run analysis / विश्लेषण चलाएं</p>
+            <p className="text-sm">{t('ld_run_analysis')}</p>
             <Button variant="outline" size="sm" className="mt-3" onClick={() => runAnalysis(activeTab)}>
-              Run {TABS.find((t) => t.id === activeTab)?.label} Analysis
+              {t('ld_run_btn')} {t(TABS.find((t2) => t2.id === activeTab)?.labelKey || '')}
             </Button>
           </div>
         )}
@@ -746,7 +746,7 @@ export default function LegalDesk() {
             disabled={loading[activeTab]}
             className="text-xs text-muted-foreground"
           >
-            <RefreshCw size={12} /> Re-run analysis
+            <RefreshCw size={12} /> {t('ld_rerun')}
           </Button>
         </div>
       )}
@@ -786,13 +786,14 @@ function AnalysisResult({ type, data }) {
 
 // ─── Summary Tab ───
 function SummaryView({ data }) {
+  const { t } = useLanguage()
   return (
     <div className="space-y-4">
       <Card>
         <CardContent className="p-5 space-y-4">
           <div>
             <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-              <FileText size={14} className="text-primary" /> Summary / सारांश
+              <FileText size={14} className="text-primary" /> {t('ld_summary_label')}
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{data.summary}</p>
           </div>
@@ -801,30 +802,30 @@ function SummaryView({ data }) {
           {data.parties && (
             <div className="bg-secondary/50 rounded-lg p-3 space-y-2">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
-                <Users size={12} /> Parties & Court Details
+                <Users size={12} /> {t('ld_parties_title')}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 {data.parties.petitioner && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Petitioner:</span>
+                    <span className="text-xs text-muted-foreground">{t('ld_petitioner')}:</span>
                     <p className="font-medium">{data.parties.petitioner}</p>
                   </div>
                 )}
                 {data.parties.respondent && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Respondent:</span>
+                    <span className="text-xs text-muted-foreground">{t('ld_respondent')}:</span>
                     <p className="font-medium">{data.parties.respondent}</p>
                   </div>
                 )}
                 {data.parties.court && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Court:</span>
+                    <span className="text-xs text-muted-foreground">{t('ld_court')}:</span>
                     <p className="font-medium">{data.parties.court}</p>
                   </div>
                 )}
                 {data.parties.case_number && (
                   <div>
-                    <span className="text-xs text-muted-foreground">Case No:</span>
+                    <span className="text-xs text-muted-foreground">{t('ld_case_no')}:</span>
                     <p className="font-medium">{data.parties.case_number}</p>
                   </div>
                 )}
@@ -835,7 +836,7 @@ function SummaryView({ data }) {
           {/* Key Points */}
           {data.key_points?.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Key Points</h4>
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">{t('ld_key_points')}</h4>
               <ul className="space-y-2">
                 {data.key_points.map((p, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
@@ -853,12 +854,12 @@ function SummaryView({ data }) {
           {data.action_required && (
             <div className="bg-saffron-50 dark:bg-saffron-900/20 border border-saffron-200 dark:border-saffron-800/50 rounded-lg p-3">
               <p className="text-sm font-medium text-saffron-800 dark:text-saffron-300">
-                ⚠️ Action Required: {data.action_required}
+                ⚠️ {t('ld_action_required')}: {data.action_required}
               </p>
               {data.deadline && (
                 <p className="text-xs text-saffron-600 dark:text-saffron-400 mt-1">
                   <Clock size={11} className="inline mr-1" />
-                  Deadline: {data.deadline}
+                  {t('ld_deadline')}: {data.deadline}
                 </p>
               )}
             </div>
@@ -871,14 +872,15 @@ function SummaryView({ data }) {
 
 // ─── FAQ Tab ───
 function FAQView({ data }) {
+  const { t } = useLanguage()
   const faqs = data.faqs || []
   if (faqs.length === 0) {
-    return <p className="text-muted-foreground text-sm text-center py-12">No FAQs generated</p>
+    return <p className="text-muted-foreground text-sm text-center py-12">{t('ld_no_faqs')}</p>
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">{faqs.length} frequently asked questions about your document</p>
+      <p className="text-xs text-muted-foreground">{faqs.length} {t('ld_faq_count')}</p>
       {faqs.map((faq, i) => (
         <Card key={i}>
           <CardContent className="p-4">
@@ -903,9 +905,10 @@ function FAQView({ data }) {
 
 // ─── Timeline Tab ───
 function TimelineView({ data }) {
+  const { t } = useLanguage()
   const events = data.events || []
   if (events.length === 0) {
-    return <p className="text-muted-foreground text-sm text-center py-12">No timeline events found in the document</p>
+    return <p className="text-muted-foreground text-sm text-center py-12">{t('ld_no_timeline')}</p>
   }
 
   const importanceColors = {
@@ -921,7 +924,7 @@ function TimelineView({ data }) {
 
   return (
     <div className="space-y-1">
-      <p className="text-xs text-muted-foreground mb-3">{events.length} events extracted from your document</p>
+      <p className="text-xs text-muted-foreground mb-3">{events.length} {t('ld_timeline_count')}</p>
       {events.map((event, i) => (
         <div key={i} className="flex gap-3 pb-1">
           <div className="flex flex-col items-center">
@@ -943,6 +946,7 @@ function TimelineView({ data }) {
 
 // ─── Predictive Analysis Tab ───
 function PredictiveView({ data }) {
+  const { t } = useLanguage()
   const confidenceColor = {
     high: 'success',
     medium: 'warning',
@@ -955,21 +959,21 @@ function PredictiveView({ data }) {
         <CardContent className="p-5 space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
             <TrendingUp size={18} className="text-primary" />
-            <h3 className="text-sm font-semibold">Predictive Analysis / भविष्यवाणी</h3>
+            <h3 className="text-sm font-semibold">{t('ld_predictive_title')}</h3>
             <Badge variant={confidenceColor[data.confidence] || 'muted'}>
-              {data.confidence} confidence
+              {data.confidence} {t('ld_confidence')}
             </Badge>
           </div>
 
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">Likely Outcome</p>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">{t('ld_likely_outcome')}</p>
             <p className="text-sm leading-relaxed">{data.prediction}</p>
           </div>
 
           {data.timeline && (
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                <Clock size={11} /> Estimated Timeline
+                <Clock size={11} /> {t('ld_est_timeline')}
               </p>
               <p className="text-sm">{data.timeline}</p>
             </div>
@@ -978,7 +982,7 @@ function PredictiveView({ data }) {
           {data.strategy && (
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                <Scale size={11} /> Recommended Strategy
+                <Scale size={11} /> {t('ld_rec_strategy')}
               </p>
               <p className="text-sm leading-relaxed">{data.strategy}</p>
             </div>
@@ -992,7 +996,7 @@ function PredictiveView({ data }) {
           <Card>
             <CardContent className="p-4 space-y-2">
               <h4 className="text-xs font-semibold uppercase text-govgreen-600 dark:text-govgreen-400 flex items-center gap-1.5">
-                <CheckCircle2 size={13} /> Strengths
+                <CheckCircle2 size={13} /> {t('ld_strengths')}
               </h4>
               <ul className="space-y-1.5">
                 {data.strengths.map((s, i) => (
@@ -1010,7 +1014,7 @@ function PredictiveView({ data }) {
           <Card>
             <CardContent className="p-4 space-y-2">
               <h4 className="text-xs font-semibold uppercase text-destructive flex items-center gap-1.5">
-                <XCircle size={13} /> Weaknesses
+                <XCircle size={13} /> {t('ld_weaknesses')}
               </h4>
               <ul className="space-y-1.5">
                 {data.weaknesses.map((w, i) => (
@@ -1030,7 +1034,7 @@ function PredictiveView({ data }) {
         <Card>
           <CardContent className="p-4 space-y-2">
             <h4 className="text-xs font-semibold uppercase text-saffron-600 dark:text-saffron-400 flex items-center gap-1.5">
-              <AlertTriangle size={13} /> Risks
+              <AlertTriangle size={13} /> {t('ld_risks')}
             </h4>
             <ul className="space-y-1.5">
               {data.risks.map((r, i) => (
@@ -1049,11 +1053,12 @@ function PredictiveView({ data }) {
 
 // ─── Case Law Tab ───
 function CaseLawView({ data }) {
+  const { t } = useLanguage()
   const cases = data.cases || []
   const acts = data.acts || []
 
   if (cases.length === 0 && acts.length === 0) {
-    return <p className="text-muted-foreground text-sm text-center py-12">No case laws or acts found</p>
+    return <p className="text-muted-foreground text-sm text-center py-12">{t('ld_no_caselaw')}</p>
   }
 
   return (
@@ -1062,7 +1067,7 @@ function CaseLawView({ data }) {
       {cases.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <BookOpen size={14} className="text-primary" /> Relevant Cases ({cases.length})
+            <BookOpen size={14} className="text-primary" /> {t('ld_relevant_cases')} ({cases.length})
           </h3>
           {cases.map((c, i) => (
             <Card key={i}>
@@ -1075,7 +1080,7 @@ function CaseLawView({ data }) {
                 <p className="text-xs text-muted-foreground leading-relaxed">{c.relevance}</p>
                 {c.outcome && (
                   <div className="bg-secondary/50 rounded px-2.5 py-1.5 text-xs">
-                    <span className="font-medium">Outcome: </span>
+                    <span className="font-medium">{t('ld_outcome')}: </span>
                     <span className="text-muted-foreground">{c.outcome}</span>
                   </div>
                 )}
@@ -1089,7 +1094,7 @@ function CaseLawView({ data }) {
       {acts.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Shield size={14} className="text-primary" /> Relevant Acts & Sections ({acts.length})
+            <Shield size={14} className="text-primary" /> {t('ld_acts_sections')} ({acts.length})
           </h3>
           {acts.map((a, i) => (
             <Card key={i}>

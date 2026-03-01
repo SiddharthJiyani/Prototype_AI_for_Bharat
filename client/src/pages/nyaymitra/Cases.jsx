@@ -5,6 +5,7 @@ import axios from 'axios'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getUserId } from '@/utils/userId'
+import { useLanguage } from '@/context/LanguageContext'
 
 const statusVariant = (s) => {
   if (s === 'Filed') return 'secondary'
@@ -18,6 +19,7 @@ export default function Cases() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const userId = getUserId()
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function Cases() {
       const response = await axios.get(`/api/cases/${userId}?userId=${userId}`)
       setCases(response.data.cases || [])
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch cases')
+      setError(err.response?.data?.error || t('failed_fetch_cases'))
       console.error(err)
     } finally {
       setLoading(false)
@@ -50,16 +52,16 @@ export default function Cases() {
         onClick={() => navigate('/nyaymitra')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft size={14} /> Back to Services
+        <ArrowLeft size={14} /> {t('back_to_services')}
       </button>
 
       <div className="flex items-start justify-between">
         <div className="space-y-0.5">
-          <h1 className="text-xl font-semibold">Your Cases</h1>
-          <p className="text-sm text-muted-foreground">{cases.length} cases found</p>
+          <h1 className="text-xl font-semibold">{t('your_cases')}</h1>
+          <p className="text-sm text-muted-foreground">{cases.length} {t('cases_found')}</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchCases} disabled={loading}>
-          <Filter size={13} /> {loading ? 'Loading...' : 'Refresh'}
+          <Filter size={13} /> {loading ? t('loading') : t('refresh')}
         </Button>
       </div>
 
@@ -82,7 +84,7 @@ export default function Cases() {
         <div className="flex gap-3 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
           <AlertCircle size={16} className="text-destructive shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-destructive">Failed to load cases</p>
+            <p className="text-sm font-medium text-destructive">{t('failed_fetch_cases')}</p>
             <p className="text-xs text-destructive/80 mt-1">{error}</p>
           </div>
         </div>
@@ -92,16 +94,16 @@ export default function Cases() {
       {loading && (
         <div className="flex flex-col items-center justify-center py-12 gap-3">
           <Loader2 size={24} className="text-muted-foreground animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading your cases...</p>
+          <p className="text-sm text-muted-foreground">{t('loading_cases')}</p>
         </div>
       )}
 
       {/* Empty state */}
       {!loading && cases.length === 0 && !error && (
         <div className="rounded-lg border border-border bg-card px-6 py-12 text-center">
-          <p className="text-sm text-muted-foreground mb-3">No cases filed yet</p>
+          <p className="text-sm text-muted-foreground mb-3">{t('no_cases_yet')}</p>
           <Button onClick={() => navigate('/nyaymitra/file')} className="gap-2">
-            File Your First Case
+            {t('file_first_case')}
           </Button>
         </div>
       )}
@@ -116,7 +118,7 @@ export default function Cases() {
               className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-secondary/50 transition-colors text-left"
             >
               <div className="space-y-0.5 flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{c.type || 'Legal Case'}</p>
+                <p className="text-sm font-medium truncate">{c.type || t('legal_case')}</p>
                 <p className="text-xs text-muted-foreground truncate">{c.description || c.transcript}</p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                   <Clock size={10} /> {new Date(c.createdAt).toLocaleDateString('en-IN')} · {c.caseId || c.id}

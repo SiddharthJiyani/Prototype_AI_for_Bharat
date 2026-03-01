@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import axios from 'axios'
+import TRANSLATIONS from '@/i18n/translations'
 
 const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
 
@@ -85,12 +86,22 @@ export function LanguageProvider({ children }) {
 
   const langMeta = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0]
 
+  /** Instant i18n lookup for static UI labels — no API call needed. */
+  const t = useCallback(
+    (key) => {
+      const dict = TRANSLATIONS[language] || TRANSLATIONS.en
+      return dict[key] || TRANSLATIONS.en[key] || key
+    },
+    [language],
+  )
+
   return (
     <LanguageContext.Provider
       value={{
         language,
         setLanguage,
         langMeta,
+        t,
         translateText,
         translateBatch,
         getTranscribeLang,

@@ -60,10 +60,10 @@ export default function Footer() {
 
         <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3">
           <p className="text-xs text-muted-foreground">
-            © 2026 IntegratedGov AI — Built for Bharat
+            © 2026 IntegratedGov AI - Built for Bharat
           </p>
           <p className="text-xs text-muted-foreground">
-            AI for Bharat Hackathon · Team Gryffindor
+            AI for Bharat Hackathon · Team Gryffindor_
           </p>
         </div>
       </div>

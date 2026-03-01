@@ -11,13 +11,12 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { exportMeetingMinutesPdf } from '@/utils/pdfExport'
 import { useLanguage, TRANSCRIBE_LANGS } from '@/context/LanguageContext'
-import LanguageSelector from '@/components/LanguageSelector'
 
 const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
 
 export default function MeetingMinutes() {
   const navigate = useNavigate()
-  const { language, getTranscribeLang, translateText, translateBatch } = useLanguage()
+  const { language, t, getTranscribeLang, translateText, translateBatch } = useLanguage()
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [processing, setProcessing] = useState(false)
@@ -49,7 +48,7 @@ export default function MeetingMinutes() {
       setElapsed(0)
       timerRef.current = setInterval(() => setElapsed(p => p + 1), 1000)
     } catch {
-      toast.error('Microphone access denied')
+      toast.error(t('mic_denied'))
     }
   }
 
@@ -83,7 +82,7 @@ export default function MeetingMinutes() {
         timeout: 120000,
       })
       const text = transcribeRes.data.transcript || transcribeRes.data.text || ''
-      if (!text) { toast.error('Could not transcribe audio'); setProcessing(false); return }
+      if (!text) { toast.error(t('could_not_transcribe')); setProcessing(false); return }
       setTranscript(text)
 
       // Step 2: Generate minutes from transcript
@@ -106,9 +105,9 @@ export default function MeetingMinutes() {
             md.key_decisions?.length ? translateBatch(md.key_decisions) : Promise.resolve(md.key_decisions),
             md.action_items?.length
               ? Promise.all(md.action_items.map(async (a) => {
-                  if (typeof a === 'string') return translateText(a)
-                  return { ...a, task: await translateText(a.task || '') }
-                }))
+                if (typeof a === 'string') return translateText(a)
+                return { ...a, task: await translateText(a.task || '') }
+              }))
               : Promise.resolve(md.action_items),
             md.schemes_discussed?.length ? translateBatch(md.schemes_discussed) : Promise.resolve(md.schemes_discussed),
             md.summary_hindi ? translateText(md.summary_hindi) : Promise.resolve(md.summary_hindi),
@@ -126,9 +125,9 @@ export default function MeetingMinutes() {
         }
       }
 
-      toast.success('Meeting minutes generated!')
+      toast.success(t('minutes_generated'))
     } catch (err) {
-      toast.error('Failed to generate minutes')
+      toast.error(t('failed_generate_minutes'))
     } finally {
       setProcessing(false)
     }
@@ -138,7 +137,7 @@ export default function MeetingMinutes() {
   const downloadMinutes = () => {
     if (!minutes) return
     exportMeetingMinutesPdf({ minutes, meetingDate, location, attendees, meetingType, transcript })
-    toast.success('PDF downloaded')
+    toast.success(t('pdf_downloaded'))
   }
 
   return (
@@ -147,39 +146,38 @@ export default function MeetingMinutes() {
         onClick={() => navigate('/panchayat')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft size={14} /> Back to Dashboard
+        <ArrowLeft size={14} /> {t('back_to_dashboard')}
       </button>
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Meeting Minutes Generator</h1>
-          <LanguageSelector showCapabilities />
+          <h1 className="text-xl font-semibold">{t('meeting_minutes_generator')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">Record your Gram Sabha meeting and get auto-generated official minutes</p>
+        <p className="text-sm text-muted-foreground">{t('meeting_subtitle')}</p>
       </div>
 
       {/* Meeting metadata */}
       {!minutes && (
         <Card>
-          <CardHeader><CardTitle className="text-sm">Meeting Details</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">{t('meeting_details')}</CardTitle></CardHeader>
           <CardContent className="pt-0 grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground">Date</label>
+              <label className="text-xs text-muted-foreground">{t('date')}</label>
               <input type="date" value={meetingDate} onChange={e => setMeetingDate(e.target.value)}
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Location</label>
+              <label className="text-xs text-muted-foreground">{t('location')}</label>
               <input type="text" value={location} onChange={e => setLocation(e.target.value)}
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Attendees</label>
+              <label className="text-xs text-muted-foreground">{t('attendees')}</label>
               <input type="number" value={attendees} onChange={e => setAttendees(e.target.value)}
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Meeting Type</label>
+              <label className="text-xs text-muted-foreground">{t('meeting_type')}</label>
               <select value={meetingType} onChange={e => setMeetingType(e.target.value)}
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                 <option>Gram Sabha</option>
@@ -197,14 +195,14 @@ export default function MeetingMinutes() {
         <Card>
           <CardContent className="py-8 flex flex-col items-center gap-4">
             {recording && (
-              <p className="text-xs text-muted-foreground">{meetingType} — Recording in Progress</p>
+              <p className="text-xs text-muted-foreground">{meetingType} — {t('recording_in_progress')}</p>
             )}
 
             {processing ? (
               <>
                 <Loader2 size={32} className="animate-spin text-primary" />
-                <p className="text-sm font-medium">Processing recording…</p>
-                <p className="text-xs text-muted-foreground">Transcribing audio → Generating minutes via AI</p>
+                <p className="text-sm font-medium">{t('processing_recording')}</p>
+                <p className="text-xs text-muted-foreground">{t('transcribing_generating')}</p>
               </>
             ) : (
               <>
@@ -212,11 +210,10 @@ export default function MeetingMinutes() {
                   onClick={recording ? stopRecording : startRecording}
                   disabled={!TRANSCRIBE_LANGS.has(language)}
                   title={!TRANSCRIBE_LANGS.has(language) ? 'Voice recording not supported for this language' : ''}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${
-                    recording
-                      ? 'bg-destructive text-destructive-foreground animate-pulse'
-                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  }`}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${recording
+                    ? 'bg-destructive text-destructive-foreground animate-pulse'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    }`}
                 >
                   {recording ? <MicOff size={24} /> : <Mic size={24} />}
                 </button>
@@ -234,7 +231,7 @@ export default function MeetingMinutes() {
                 )}
 
                 {!recording && (
-                  <p className="text-xs text-muted-foreground">Tap to start recording your meeting</p>
+                  <p className="text-xs text-muted-foreground">{t('tap_to_start')}</p>
                 )}
               </>
             )}
@@ -246,7 +243,7 @@ export default function MeetingMinutes() {
       {transcript && !minutes && (
         <Card>
           <CardContent className="py-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Transcript</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1">{t('transcript')}</p>
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{transcript}</p>
           </CardContent>
         </Card>
@@ -256,39 +253,39 @@ export default function MeetingMinutes() {
       {minutes && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Auto-Generated Minutes</h2>
-            <Badge variant="secondary">AI Generated</Badge>
+            <h2 className="text-sm font-semibold">{t('auto_generated_minutes')}</h2>
+            <Badge variant="secondary">{t('ai_generated')}</Badge>
           </div>
 
           {/* Meeting details */}
           <Card>
-            <CardHeader><CardTitle className="text-sm">Meeting Details</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">{t('meeting_details')}</CardTitle></CardHeader>
             <CardContent className="pt-0 grid grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar size={13} className="text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Date</p>
+                  <p className="text-xs text-muted-foreground">{t('date')}</p>
                   <p className="font-medium mt-0.5">{minutes.meeting_details?.date || meetingDate}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin size={13} className="text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Location</p>
+                  <p className="text-xs text-muted-foreground">{t('location')}</p>
                   <p className="font-medium mt-0.5">{minutes.meeting_details?.location || location}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Users size={13} className="text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Attendees</p>
+                  <p className="text-xs text-muted-foreground">{t('attendees')}</p>
                   <p className="font-medium mt-0.5">{minutes.meeting_details?.attendees || attendees}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <ClipboardList size={13} className="text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Type</p>
+                  <p className="text-xs text-muted-foreground">{t('meeting_type')}</p>
                   <p className="font-medium mt-0.5">{minutes.meeting_details?.type || meetingType}</p>
                 </div>
               </div>
@@ -298,7 +295,7 @@ export default function MeetingMinutes() {
           {/* Agenda */}
           {minutes.agenda_items?.length > 0 && (
             <Card>
-              <CardHeader><CardTitle className="text-sm">Agenda Items Discussed</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">{t('agenda_items')}</CardTitle></CardHeader>
               <CardContent className="pt-0 space-y-1">
                 {minutes.agenda_items.map((item, i) => (
                   <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
@@ -312,7 +309,7 @@ export default function MeetingMinutes() {
           {/* Key Decisions */}
           {minutes.key_decisions?.length > 0 && (
             <Card>
-              <CardHeader><CardTitle className="text-sm">Key Decisions</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">{t('key_decisions')}</CardTitle></CardHeader>
               <CardContent className="pt-0 space-y-2">
                 {minutes.key_decisions.map((d, i) => (
                   <div key={i} className="flex items-start gap-2 text-sm">
@@ -327,13 +324,13 @@ export default function MeetingMinutes() {
           {/* Action Items */}
           {minutes.action_items?.length > 0 && (
             <Card>
-              <CardHeader><CardTitle className="text-sm">Action Items</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">{t('action_items')}</CardTitle></CardHeader>
               <CardContent className="pt-0 space-y-3">
                 {minutes.action_items.map((a, i) => (
                   <div key={i} className="rounded-md border border-border p-3 space-y-0.5">
                     <p className="text-sm font-medium">{typeof a === 'string' ? a : a.task}</p>
-                    {a.assigned && <p className="text-xs text-muted-foreground">Assigned to: {a.assigned}</p>}
-                    {a.deadline && <p className="text-xs text-muted-foreground">Deadline: {a.deadline}</p>}
+                    {a.assigned && <p className="text-xs text-muted-foreground">{t('assigned_to')} {a.assigned}</p>}
+                    {a.deadline && <p className="text-xs text-muted-foreground">{t('deadline')} {a.deadline}</p>}
                   </div>
                 ))}
               </CardContent>
@@ -344,7 +341,7 @@ export default function MeetingMinutes() {
           {minutes.schemes_discussed?.length > 0 && (
             <Card>
               <CardContent className="py-4">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Schemes Discussed</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">{t('schemes_discussed')}</p>
                 <div className="flex flex-wrap gap-2">
                   {minutes.schemes_discussed.map((s, i) => (
                     <Badge key={i} variant="secondary">{s}</Badge>
@@ -361,7 +358,7 @@ export default function MeetingMinutes() {
                 <CardContent className="py-4 flex items-center gap-3">
                   <IndianRupee size={16} className="text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Funds Approved</p>
+                    <p className="text-xs text-muted-foreground">{t('funds_approved')}</p>
                     <p className="text-sm font-semibold mt-0.5">{minutes.funds_approved}</p>
                   </div>
                 </CardContent>
@@ -372,7 +369,7 @@ export default function MeetingMinutes() {
                 <CardContent className="py-4 flex items-center gap-3">
                   <Calendar size={16} className="text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Next Meeting</p>
+                    <p className="text-xs text-muted-foreground">{t('next_meeting')}</p>
                     <p className="text-sm font-semibold mt-0.5">{minutes.next_meeting}</p>
                   </div>
                 </CardContent>
@@ -384,7 +381,7 @@ export default function MeetingMinutes() {
           {minutes.summary_hindi && (
             <Card>
               <CardContent className="py-4">
-                <p className="text-xs font-semibold text-muted-foreground mb-1">सारांश / Summary</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">{t('summary')}</p>
                 <p className="text-sm leading-relaxed">{minutes.summary_hindi}</p>
               </CardContent>
             </Card>
@@ -394,7 +391,7 @@ export default function MeetingMinutes() {
           {transcript && (
             <Card>
               <CardContent className="py-4">
-                <p className="text-xs font-semibold text-muted-foreground mb-1">Original Transcript</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">{t('original_transcript')}</p>
                 <p className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">{transcript}</p>
               </CardContent>
             </Card>
@@ -406,10 +403,10 @@ export default function MeetingMinutes() {
               setTranscript('')
               setElapsed(0)
             }}>
-              <Mic size={14} /> Record New
+              <Mic size={14} /> {t('record_new')}
             </Button>
             <Button className="gap-2" onClick={downloadMinutes}>
-              <Download size={14} /> Download Official Minutes
+              <Download size={14} /> {t('download_official_minutes')}
             </Button>
           </div>
         </div>

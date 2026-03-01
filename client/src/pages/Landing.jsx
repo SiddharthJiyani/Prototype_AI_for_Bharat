@@ -7,115 +7,64 @@ import {
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
+import { useLanguage, LANGUAGES } from '@/context/LanguageContext'
 
-const LANGUAGES = [
-  { code: 'hi', label: 'हिंदी' },
-  { code: 'en', label: 'English' },
-  { code: 'mr', label: 'मराठी' },
-  { code: 'ta', label: 'தமிழ்' },
-  { code: 'te', label: 'తెలుగు' },
-]
+
 
 const USER_TYPES = [
-  {
-    id: 'citizen',
-    icon: Users,
-    title: 'Citizen',
-    description: 'Access legal help, schemes, and track cases',
-    href: '/nyaymitra',
-  },
-  {
-    id: 'panchayat',
-    icon: Building2,
-    title: 'Panchayat Member',
-    description: 'Manage schemes, budgets, and grievances',
-    href: '/panchayat',
-  },
+  { id: 'citizen', icon: Users, titleKey: 'citizen', descKey: 'citizen_desc', href: '/nyaymitra' },
+  { id: 'panchayat', icon: Building2, titleKey: 'panchayat_member', descKey: 'panchayat_member_desc', href: '/panchayat' },
 ]
 
 const NYAY_SERVICES = [
-  {
-    icon: CheckCircle2,
-    title: 'Check Scheme Eligibility',
-    description: 'Find government schemes you qualify for',
-    href: '/nyaymitra',
-  },
-  {
-    icon: FileText,
-    title: 'Get Legal Help',
-    description: 'Generate legal notices and RTI applications',
-    href: '/nyaymitra/file',
-  },
-  {
-    icon: BookOpen,
-    title: 'Know My Rights',
-    description: 'Understand your legal rights and protections',
-    href: '/nyaymitra',
-  },
-  {
-    icon: Search,
-    title: 'Track My Case',
-    description: 'Check status of your applications and cases',
-    href: '/nyaymitra/cases',
-  },
+  { icon: CheckCircle2, titleKey: 'check_eligibility', descKey: 'check_eligibility_desc', href: '/nyaymitra' },
+  { icon: FileText, titleKey: 'get_legal_help', descKey: 'get_legal_help_desc', href: '/nyaymitra/file' },
+  { icon: BookOpen, titleKey: 'know_rights', descKey: 'know_rights_desc', href: '/nyaymitra' },
+  { icon: Search, titleKey: 'track_case', descKey: 'track_case_desc', href: '/nyaymitra/cases' },
 ]
 
 const PANCHAYAT_FEATURES = [
-  {
-    icon: Globe,
-    title: 'AI Scheme Navigator',
-    description: '200+ government schemes matched to your village profile via voice',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Smart Budget Allocation',
-    description: 'AI-assisted planning and fund allocation with BDO approval support',
-  },
-  {
-    icon: Mic,
-    title: 'Auto Meeting Minutes',
-    description: 'Auto-generate Gram Sabha minutes from voice recordings',
-  },
-  {
-    icon: AlertTriangle,
-    title: 'Grievance Tracking',
-    description: 'Track and manage citizen complaints with status transparency',
-  },
+  { icon: Globe, titleKey: 'ai_scheme_navigator', descKey: 'ai_scheme_navigator_desc' },
+  { icon: TrendingUp, titleKey: 'smart_budget', descKey: 'smart_budget_desc' },
+  { icon: Mic, titleKey: 'auto_meeting_minutes', descKey: 'auto_meeting_minutes_desc' },
+  { icon: AlertTriangle, titleKey: 'grievance_tracking_feat', descKey: 'grievance_tracking_feat_desc' },
 ]
 
 const HOW_IT_WORKS = [
-  {
-    step: '01',
-    title: 'Speak in Your Language',
-    description: 'Use Hindi, Marathi, Tamil, or any supported language — no literacy required.',
-  },
-  {
-    step: '02',
-    title: 'AI Understands & Acts',
-    description: 'Amazon Bedrock processes your request, generates documents, or finds applicable schemes.',
-  },
-  {
-    step: '03',
-    title: 'Get Results Instantly',
-    description: 'Receive legal notices, scheme lists, or governance reports — ready to act on.',
-  },
+  { step: '01', titleKey: 'step1_title', descKey: 'step1_desc' },
+  { step: '02', titleKey: 'step2_title', descKey: 'step2_desc' },
+  { step: '03', titleKey: 'step3_title', descKey: 'step3_desc' },
 ]
 
-const INTEGRATION_POINTS = [
-  'Legal complaints → automatically alert Sarpanch of systemic issues',
-  'Malnutrition data → triggers MGNREGA nutrition garden schemes',
-  'Grievance patterns → inform Panchayat budget priorities',
-  'Court case trends → shape proactive governance actions',
+const PLATFORM_CAPS = [
+  { icon: Mic, titleKey: 'multilingual_voice', descKey: 'multilingual_voice_desc' },
+  { icon: FileText, titleKey: 'ai_text_doc', descKey: 'ai_text_doc_desc' },
+  { icon: Shield, titleKey: 'gov_api_integration', descKey: 'gov_api_integration_desc' },
+]
+
+const INTEGRATION_KEYS = [
+  'integration_point_1',
+  'integration_point_2',
+  'integration_point_3',
+  'integration_point_4',
+]
+
+const MVP_DOES_KEYS = [
+  'mvp_does_1', 'mvp_does_2', 'mvp_does_3', 'mvp_does_4', 'mvp_does_5', 'mvp_does_6',
+]
+
+const MVP_NOT_KEYS = [
+  'mvp_not_1', 'mvp_not_2', 'mvp_not_3', 'mvp_not_4', 'mvp_not_5', 'mvp_not_6',
 ]
 
 export default function Landing() {
-  const [selectedLang, setSelectedLang] = useState('hi')
   const [selectedType, setSelectedType] = useState(null)
   const navigate = useNavigate()
+  const { language, setLanguage, t } = useLanguage()
 
   const handleStart = () => {
     if (selectedType) {
-      navigate(USER_TYPES.find(t => t.id === selectedType)?.href || '/login')
+      navigate(USER_TYPES.find(u => u.id === selectedType)?.href || '/login')
     } else {
       navigate('/login')
     }
@@ -128,30 +77,29 @@ export default function Landing() {
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center space-y-8">
           <div className="space-y-2">
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-              Welcome to Digital Governance
+              {t('welcome_digital_gov')}
             </h1>
             <p className="text-muted-foreground text-base">
-              Select your language and role to begin
+              {t('select_lang_role')}
             </p>
           </div>
 
           {/* Language selector */}
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Choose Your Language
+              {t('choose_language')}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {LANGUAGES.map((lang) => (
                 <button
                   key={lang.code}
-                  onClick={() => setSelectedLang(lang.code)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                    selectedLang === lang.code
+                  onClick={() => setLanguage(lang.code)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${language === lang.code
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground bg-transparent'
-                  }`}
+                    }`}
                 >
-                  {lang.label}
+                  {lang.native}
                 </button>
               ))}
             </div>
@@ -160,7 +108,7 @@ export default function Landing() {
           {/* User type */}
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Select User Type
+              {t('select_user_type')}
             </p>
             <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
               {USER_TYPES.map((type) => {
@@ -170,11 +118,10 @@ export default function Landing() {
                   <button
                     key={type.id}
                     onClick={() => setSelectedType(type.id)}
-                    className={`rounded-lg border p-4 text-left transition-colors hover:bg-secondary/60 ${
-                      active
+                    className={`rounded-lg border p-4 text-left transition-colors hover:bg-secondary/60 ${active
                         ? 'border-foreground bg-secondary'
                         : 'border-border bg-card'
-                    }`}
+                      }`}
                   >
                     <Icon
                       size={20}
@@ -192,7 +139,7 @@ export default function Landing() {
 
           <Button size="lg" className="gap-2" onClick={handleStart}>
             <Mic size={16} />
-            Start with Voice
+            {t('start_with_voice')}
           </Button>
         </div>
       </section>
@@ -202,10 +149,10 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-8">
           <div className="text-center space-y-1">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Module 1
+              {t('module_1')}
             </p>
-            <h2 className="text-2xl font-semibold">NyayMitra — Citizen Services</h2>
-            <p className="text-muted-foreground text-sm">How can we help you today?</p>
+            <h2 className="text-2xl font-semibold">{t('nyaymitra_citizen')}</h2>
+            <p className="text-muted-foreground text-sm">{t('how_help_today')}</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -213,15 +160,15 @@ export default function Landing() {
               const Icon = service.icon
               return (
                 <button
-                  key={service.title}
+                  key={service.titleKey}
                   onClick={() => navigate(service.href)}
                   className="flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-4 text-left hover:bg-secondary/60 transition-colors group"
                 >
                   <Icon size={18} className="text-muted-foreground group-hover:text-foreground transition-colors" />
                   <div>
-                    <p className="text-sm font-medium leading-snug">{service.title}</p>
+                    <p className="text-sm font-medium leading-snug">{t(service.titleKey)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                      {service.description}
+                      {t(service.descKey)}
                     </p>
                   </div>
                 </button>
@@ -237,7 +184,7 @@ export default function Landing() {
             >
               <Mic size={22} />
             </button>
-            <p className="text-xs text-muted-foreground">Tap to speak your request</p>
+            <p className="text-xs text-muted-foreground">{t('tap_speak_request')}</p>
           </div>
         </div>
       </section>
@@ -247,11 +194,11 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-8">
           <div className="text-center space-y-1">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Module 2
+              {t('module_2')}
             </p>
-            <h2 className="text-2xl font-semibold">PanchayatGPT — Governance AI</h2>
+            <h2 className="text-2xl font-semibold">{t('panchayatgpt_governance')}</h2>
             <p className="text-muted-foreground text-sm">
-              AI-powered tools for Sarpanch and Panchayat members
+              {t('ai_tools_sarpanch')}
             </p>
           </div>
 
@@ -260,12 +207,12 @@ export default function Landing() {
               const Icon = feat.icon
               return (
                 <div
-                  key={feat.title}
+                  key={feat.titleKey}
                   className="rounded-lg border border-border bg-card p-4 space-y-2"
                 >
                   <Icon size={18} className="text-muted-foreground" />
-                  <p className="text-sm font-medium leading-snug">{feat.title}</p>
-                  <p className="text-xs text-muted-foreground leading-snug">{feat.description}</p>
+                  <p className="text-sm font-medium leading-snug">{t(feat.titleKey)}</p>
+                  <p className="text-xs text-muted-foreground leading-snug">{t(feat.descKey)}</p>
                 </div>
               )
             })}
@@ -273,7 +220,7 @@ export default function Landing() {
 
           <div className="text-center">
             <Button variant="outline" onClick={() => navigate('/panchayat')}>
-              Open PanchayatGPT
+              {t('open_panchayatgpt')}
               <ArrowRight size={14} />
             </Button>
           </div>
@@ -286,19 +233,19 @@ export default function Landing() {
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div className="space-y-4">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                The Integration Advantage
+                {t('integration_advantage')}
               </p>
               <h2 className="text-2xl font-semibold">
-                Cross-Module Intelligence
+                {t('cross_module_intel')}
               </h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Unlike standalone apps, IntegratedGov AI's shared infrastructure creates synergies — legal data informs governance, and governance data improves legal outcomes.
+                {t('cross_module_desc')}
               </p>
               <ul className="space-y-2">
-                {INTEGRATION_POINTS.map((point, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
+                {INTEGRATION_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2 text-sm">
                     <Zap size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
-                    <span className="text-muted-foreground">{point}</span>
+                    <span className="text-muted-foreground">{t(key)}</span>
                   </li>
                 ))}
               </ul>
@@ -308,7 +255,7 @@ export default function Landing() {
                 <Scale size={16} className="text-muted-foreground shrink-0" />
                 <div>
                   <p className="text-sm font-medium">NyayMitra</p>
-                  <p className="text-xs text-muted-foreground">Legal aid + rights awareness</p>
+                  <p className="text-xs text-muted-foreground">{t('legal_aid_rights')}</p>
                 </div>
               </div>
               <div className="flex justify-center">
@@ -322,12 +269,12 @@ export default function Landing() {
                 <Building2 size={16} className="text-muted-foreground shrink-0" />
                 <div>
                   <p className="text-sm font-medium">PanchayatGPT</p>
-                  <p className="text-xs text-muted-foreground">Governance + scheme management</p>
+                  <p className="text-xs text-muted-foreground">{t('governance_scheme')}</p>
                 </div>
               </div>
               <div className="mt-3 p-3 rounded-md border border-border text-center">
-                <p className="text-xs font-medium">= Compound Impact</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Across Governance & Justice</p>
+                <p className="text-xs font-medium">{t('compound_impact')}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('across_gov_justice')}</p>
               </div>
             </div>
           </div>
@@ -338,17 +285,17 @@ export default function Landing() {
       <section className="py-14 border-b border-border">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-10">
           <div className="text-center space-y-1">
-            <h2 className="text-2xl font-semibold">How It Works</h2>
+            <h2 className="text-2xl font-semibold">{t('how_it_works')}</h2>
             <p className="text-muted-foreground text-sm">
-              Three simple steps to access legal and governance services
+              {t('three_steps')}
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {HOW_IT_WORKS.map((step) => (
               <div key={step.step} className="space-y-3">
                 <span className="text-3xl font-bold text-border">{step.step}</span>
-                <h3 className="text-sm font-semibold">{step.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{step.description}</p>
+                <h3 className="text-sm font-semibold">{t(step.titleKey)}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{t(step.descKey)}</p>
               </div>
             ))}
           </div>
@@ -359,35 +306,19 @@ export default function Landing() {
       <section className="py-14">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-8">
           <div className="text-center space-y-1">
-            <h2 className="text-2xl font-semibold">Platform Capabilities</h2>
+            <h2 className="text-2xl font-semibold">{t('platform_capabilities')}</h2>
             <p className="text-muted-foreground text-sm">
-              Behind-the-scenes technology powering the MVP
+              {t('behind_scenes')}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              {
-                icon: Mic,
-                title: 'Multilingual Voice Processing',
-                description: 'Speech-to-text and text-to-speech in 5+ Indian languages via Amazon Transcribe & Polly',
-              },
-              {
-                icon: FileText,
-                title: 'AI Text & Document Generation',
-                description: 'Context-aware legal and administrative document creation via Amazon Bedrock',
-              },
-              {
-                icon: Shield,
-                title: 'Government API Integration',
-                description: 'Mock integration with scheme databases and eCourts — production-ready architecture',
-              },
-            ].map((cap) => {
+            {PLATFORM_CAPS.map((cap) => {
               const Icon = cap.icon
               return (
-                <div key={cap.title} className="rounded-lg border border-border bg-card p-5 space-y-2">
+                <div key={cap.titleKey} className="rounded-lg border border-border bg-card p-5 space-y-2">
                   <Icon size={18} className="text-muted-foreground" />
-                  <p className="text-sm font-semibold">{cap.title}</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{cap.description}</p>
+                  <p className="text-sm font-semibold">{t(cap.titleKey)}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{t(cap.descKey)}</p>
                 </div>
               )
             })}
@@ -396,41 +327,25 @@ export default function Landing() {
           {/* MVP Scope */}
           <div className="rounded-lg border border-border bg-card p-6 mt-4">
             <div className="text-center mb-5">
-              <h3 className="text-base font-semibold">MVP Scope Summary</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                An MVP that enables citizens and Panchayat members to access legal help, schemes, and governance services through simple voice interactions, backed by AI-driven guidance and document generation.
-              </p>
+              <h3 className="text-base font-semibold">{t('mvp_scope')}</h3>
+              <p className="text-xs text-muted-foreground mt-1">{t('mvp_scope_desc')}</p>
             </div>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">What MVP Does</p>
-                {[
-                  'Voice-based interaction in multiple Indian languages',
-                  'Legal document generation (notices, RTI applications)',
-                  'Scheme eligibility checking and guidance',
-                  'Panchayat decision support for schemes and budgets',
-                  'Automated meeting minutes generation',
-                  'Grievance tracking and status transparency',
-                ].map((item) => (
-                  <div key={item} className="flex items-start gap-2 text-xs">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('what_mvp_does')}</p>
+                {MVP_DOES_KEYS.map((key) => (
+                  <div key={key} className="flex items-start gap-2 text-xs">
                     <CheckCircle2 size={12} className="mt-0.5 shrink-0 text-foreground" />
-                    <span className="text-muted-foreground">{item}</span>
+                    <span className="text-muted-foreground">{t(key)}</span>
                   </div>
                 ))}
               </div>
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">What MVP Does Not</p>
-                {[
-                  'Full government submission and integration',
-                  'Payment processing and financial transactions',
-                  'Large-scale analytics and reporting dashboards',
-                  'Real-time government database synchronisation',
-                  'Advanced workflow automation',
-                  'Multi-tier government hierarchy management',
-                ].map((item) => (
-                  <div key={item} className="flex items-start gap-2 text-xs">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('what_mvp_does_not')}</p>
+                {MVP_NOT_KEYS.map((key) => (
+                  <div key={key} className="flex items-start gap-2 text-xs">
                     <div className="w-3 h-3 mt-0.5 shrink-0 rounded-full border border-muted-foreground/40" />
-                    <span className="text-muted-foreground">{item}</span>
+                    <span className="text-muted-foreground">{t(key)}</span>
                   </div>
                 ))}
               </div>

@@ -18,6 +18,7 @@ import Cases from '@/pages/nyaymitra/Cases'
 import CaseDetail from '@/pages/nyaymitra/CaseDetail'
 import LegalChat from '@/pages/nyaymitra/LegalChat'
 import LegalDesk from '@/pages/nyaymitra/LegalDesk'
+import LegalGuide from '@/pages/nyaymitra/LegalGuide'
 import FormAutoFill from '@/pages/nyaymitra/FormAutoFill'
 // PanchayatGPT
 import PanchayatDashboard from '@/pages/panchayat/Dashboard'
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="/nyaymitra/chat" element={<ProtectedRoute><LegalChat /></ProtectedRoute>} />
               <Route path="/nyaymitra/desk" element={<ProtectedRoute><LegalDesk /></ProtectedRoute>} />
               <Route path="/nyaymitra/forms" element={<ProtectedRoute><FormAutoFill /></ProtectedRoute>} />
+              <Route path="/nyaymitra/legal-guide" element={<ProtectedRoute><LegalGuide /></ProtectedRoute>} />
 
               {/* PanchayatGPT — protected */}
               <Route path="/panchayat" element={<ProtectedRoute><PanchayatDashboard /></ProtectedRoute>} />

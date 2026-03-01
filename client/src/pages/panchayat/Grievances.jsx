@@ -7,7 +7,6 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getUserId } from '@/utils/userId'
 import { useLanguage } from '@/context/LanguageContext'
-import LanguageSelector from '@/components/LanguageSelector'
 
 const TABS = ['All', 'New', 'Assigned', 'Resolved']
 
@@ -26,7 +25,7 @@ const priorityVariant = (p) => {
 
 export default function Grievances() {
   const navigate = useNavigate()
-  const { language, translateText } = useLanguage()
+  const { language, t, translateText } = useLanguage()
   const panchayatId = getUserId()
   const [tab, setTab] = useState('All')
   const [grievances, setGrievances] = useState([])
@@ -71,7 +70,7 @@ export default function Grievances() {
 
   const createGrievance = async () => {
     if (!form.subject.trim() || !form.submittedBy.trim()) {
-      toast.error('Subject and submitter are required')
+      toast.error(t('subject_required'))
       return
     }
     setSubmitting(true)
@@ -80,12 +79,12 @@ export default function Grievances() {
         panchayatId,
         ...form,
       })
-      toast.success('Grievance created')
+      toast.success(t('grievance_created'))
       setShowModal(false)
       setForm({ subject: '', submittedBy: '', description: '', priority: 'Medium' })
       fetchGrievances()
     } catch {
-      toast.error('Failed to create grievance')
+      toast.error(t('failed_create_grievance'))
     } finally {
       setSubmitting(false)
     }
@@ -95,9 +94,9 @@ export default function Grievances() {
     try {
       await axios.patch(`/api/grievances/${id}`, { status: newStatus })
       setGrievances(prev => prev.map(g => g.id === id ? { ...g, status: newStatus } : g))
-      toast.success(`Grievance ${newStatus.toLowerCase()}`)
+      toast.success(`${t('grievances')} ${newStatus.toLowerCase()}`)
     } catch {
-      toast.error('Failed to update')
+      toast.error(t('failed_update'))
     }
   }
 
@@ -110,21 +109,21 @@ export default function Grievances() {
         onClick={() => navigate('/panchayat')}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft size={14} /> Back to Dashboard
+        <ArrowLeft size={14} /> {t('back_to_dashboard')}
       </button>
 
       <div className="flex items-start justify-between">
         <div className="space-y-0.5">
-          <h1 className="text-xl font-semibold">Grievance Tracking</h1>
-          <p className="text-sm text-muted-foreground">Monitor and manage citizen complaints</p>
+          <h1 className="text-xl font-semibold">{t('grievance_tracking')}</h1>
+          <p className="text-sm text-muted-foreground">{t('grievance_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <LanguageSelector />
+
           <Button variant="outline" size="sm" onClick={fetchGrievances} disabled={loading} className="gap-1.5">
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> {t('refresh')}
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => setShowModal(true)}>
-            <Plus size={13} /> Add New Grievance
+            <Plus size={13} /> {t('add_new_grievance')}
           </Button>
         </div>
       </div>
@@ -135,11 +134,10 @@ export default function Grievances() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              tab === t
-                ? 'border-foreground text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === t
+              ? 'border-foreground text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             {t}
             <span className="ml-1.5 text-xs text-muted-foreground">({countByStatus(t)})</span>
@@ -154,7 +152,7 @@ export default function Grievances() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-sm text-muted-foreground">
-          No grievances{tab !== 'All' ? ` with status "${tab}"` : ''}. Click "Add New Grievance" to create one.
+          {t('no_grievances')}{tab !== 'All' ? ` ${t('with_status')} "${tab}"` : ''}. {t('click_add')}
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -162,12 +160,12 @@ export default function Grievances() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/40">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">ID</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Subject</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Submitted By</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Priority</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('id')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('subject')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('submitted_by')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('priority')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('status')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -195,11 +193,11 @@ export default function Grievances() {
                       {g.status === 'Assigned' && (
                         <button onClick={() => updateStatus(g.id, 'Resolved')}
                           className="text-xs font-medium hover:text-muted-foreground transition-colors">
-                          Resolve
+                          {t('resolve')}
                         </button>
                       )}
                       {g.status === 'Resolved' && (
-                        <span className="text-xs text-muted-foreground">Closed</span>
+                        <span className="text-xs text-muted-foreground">{t('closed')}</span>
                       )}
                     </td>
                   </tr>
@@ -215,32 +213,32 @@ export default function Grievances() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowModal(false)}>
           <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4 p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">New Grievance</h3>
+              <h3 className="text-sm font-semibold">{t('new_grievance')}</h3>
               <button onClick={() => setShowModal(false)} className="p-1 rounded hover:bg-secondary"><X size={14} /></button>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-muted-foreground">Subject *</label>
+                <label className="text-xs text-muted-foreground">{t('subject_label')}</label>
                 <input type="text" value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                  placeholder="Brief description of the complaint"
+                  placeholder={t('subject_placeholder')}
                   className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Submitted By *</label>
+                <label className="text-xs text-muted-foreground">{t('submitted_by_label')}</label>
                 <input type="text" value={form.submittedBy} onChange={e => setForm(f => ({ ...f, submittedBy: e.target.value }))}
-                  placeholder="Citizen name"
+                  placeholder={t('citizen_name_placeholder')}
                   className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Description</label>
+                <label className="text-xs text-muted-foreground">{t('description')}</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="Detailed description…"
+                  placeholder={t('description_placeholder')}
                   rows={3}
                   className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Priority</label>
+                <label className="text-xs text-muted-foreground">{t('priority_label')}</label>
                 <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
                   className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                   <option>Low</option>
@@ -251,10 +249,10 @@ export default function Grievances() {
             </div>
 
             <div className="flex gap-2 justify-end pt-2">
-              <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>{t('cancel')}</Button>
               <Button size="sm" onClick={createGrievance} disabled={submitting}>
                 {submitting && <Loader2 size={13} className="animate-spin mr-1" />}
-                Create
+                {t('create')}
               </Button>
             </div>
           </div>
