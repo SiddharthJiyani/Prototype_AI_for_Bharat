@@ -48,14 +48,14 @@ const SERVICE_KEYS = [
     titleKey: "legal_desk",
     descKey: "legal_desk_desc",
     href: "/nyaymitra/desk",
-    badge: "New",
+    // badge: "New",
   },
   {
     icon: ClipboardEdit,
     titleKey: "form_auto_fill",
     descKey: "form_auto_fill_desc",
     href: "/nyaymitra/forms",
-    badge: "New",
+    // badge: "New",
   },
   {
     icon: Scale,
@@ -70,6 +70,7 @@ const SERVICE_KEYS = [
     descKey: "scheme_eligibility_desc",
     href: "/panchayat/schemes",
     badge: null,
+    badge: 'Voice',
   },
 ];
 
