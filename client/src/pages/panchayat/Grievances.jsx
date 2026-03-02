@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Loader2, X, RefreshCw } from 'lucide-react'
-import axios from 'axios'
+import { apiClient } from '@/lib/axios'
 import toast from 'react-hot-toast'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -39,7 +39,7 @@ export default function Grievances() {
   const fetchGrievances = async () => {
     setLoading(true)
     try {
-      const res = await axios.get(`/api/grievances/${panchayatId}`)
+      const res = await apiClient.get(`/api/grievances/${panchayatId}`)
       const raw = res.data.grievances || []
 
       // Translate subjects/descriptions if not English
@@ -75,7 +75,7 @@ export default function Grievances() {
     }
     setSubmitting(true)
     try {
-      await axios.post('/api/grievances', {
+      await apiClient.post('/api/grievances', {
         panchayatId,
         ...form,
       })
@@ -92,7 +92,7 @@ export default function Grievances() {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      await axios.patch(`/api/grievances/${id}`, { status: newStatus })
+      await apiClient.patch(`/api/grievances/${id}`, { status: newStatus })
       setGrievances(prev => prev.map(g => g.id === id ? { ...g, status: newStatus } : g))
       toast.success(`${t('grievances')} ${newStatus.toLowerCase()}`)
     } catch {

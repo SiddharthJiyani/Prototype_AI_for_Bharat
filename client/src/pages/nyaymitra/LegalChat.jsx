@@ -414,7 +414,7 @@ export default function LegalChat() {
     }
     setSpeaking(true)
     try {
-      const res = await axios.post('/ai/tts/speak', { text, language }, { responseType: 'blob' })
+      const res = await aiClient.post('/tts/speak', { text, language }, { responseType: 'blob' })
       const url = URL.createObjectURL(res.data)
       const audio = new Audio(url)
       audioRef.current = audio

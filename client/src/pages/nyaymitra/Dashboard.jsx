@@ -23,7 +23,7 @@ import {
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import DailyLegalDose from "@/components/DailyLegalDose";
-import axios from "axios";
+import { apiClient } from '@/lib/axios';
 import { getUserId } from "@/utils/userId";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -88,7 +88,7 @@ export default function NyayDashboard() {
 
   useEffect(() => {
     const userId = getUserId();
-    axios
+    apiClient
       .get(`/api/cases/${userId}?userId=${userId}`)
       .then((res) => {
         const sorted = (res.data.cases || [])

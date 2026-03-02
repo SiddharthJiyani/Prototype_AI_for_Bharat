@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Clock, ChevronRight, Filter, Loader2, AlertCircle } from 'lucide-react'
-import axios from 'axios'
+import { apiClient } from '@/lib/axios'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getUserId } from '@/utils/userId'
@@ -30,7 +30,7 @@ export default function Cases() {
     setLoading(true)
     setError(null)
     try {
-      const response = await axios.get(`/api/cases/${userId}?userId=${userId}`)
+      const response = await apiClient.get(`/api/cases/${userId}?userId=${userId}`)
       setCases(response.data.cases || [])
     } catch (err) {
       setError(err.response?.data?.error || t('failed_fetch_cases'))

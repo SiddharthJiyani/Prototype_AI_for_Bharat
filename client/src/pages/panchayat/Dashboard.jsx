@@ -4,14 +4,12 @@ import {
   Search, TrendingUp, Mic, AlertTriangle, ChevronRight,
   Users, FileText, AlertCircle, Loader2, RefreshCw,
 } from 'lucide-react'
-import axios from 'axios'
+import { apiClient, aiClient } from '@/lib/axios'
 import { Card, CardContent } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getUserId } from '@/utils/userId'
 import { useLanguage } from '@/context/LanguageContext'
-
-const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
 
 const ACTION_KEYS = [
   { icon: Search, titleKey: 'ask_schemes', descKey: 'ask_schemes_desc', href: '/panchayat/schemes' },
@@ -41,8 +39,8 @@ export default function PanchayatDashboard() {
     setLoading(true)
     try {
       const [gRes, bRes] = await Promise.allSettled([
-        axios.get(`/api/grievances/${panchayatId}`),
-        axios.get(`/api/budget/${panchayatId}`),
+        apiClient.get(`/api/grievances/${panchayatId}`),
+        apiClient.get(`/api/budget/${panchayatId}`),
       ])
 
       const grievances = gRes.status === 'fulfilled' ? (gRes.value.data.grievances || []) : []
@@ -72,7 +70,7 @@ export default function PanchayatDashboard() {
   const fetchAlerts = async () => {
     setAlertsLoading(true)
     try {
-      const res = await axios.post(`${AI_BASE}/ai/integration/detect-patterns`, {
+      const res = await aiClient.post('/integration/detect-patterns', {
         panchayat_id: panchayatId,
         data_sources: ['grievances', 'schemes', 'budget'],
       }, { timeout: 60000 })

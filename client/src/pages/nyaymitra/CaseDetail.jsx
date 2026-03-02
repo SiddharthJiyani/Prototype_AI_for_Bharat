@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Download, Clock, CheckCircle2, Circle, Loader2, AlertCircle, Mail, Shield } from 'lucide-react'
-import axios from 'axios'
+import { apiClient } from '@/lib/axios'
 import { jsPDF } from 'jspdf'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -51,7 +51,7 @@ export default function CaseDetail() {
     setLoading(true)
     setError(null)
     try {
-      const response = await axios.get(`/api/cases/${decodeURIComponent(id)}`)
+      const response = await apiClient.get(`/api/cases/${decodeURIComponent(id)}`)
       const data = response.data
       setCaseData(data)
 

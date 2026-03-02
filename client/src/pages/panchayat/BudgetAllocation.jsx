@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, TrendingUp, Download, Save, Loader2, Plus, Trash2, AlertTriangle, History, ChevronDown, ChevronUp } from 'lucide-react'
-import axios from 'axios'
+import { apiClient, aiClient } from '@/lib/axios'
 import toast from 'react-hot-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -9,7 +9,6 @@ import { getUserId } from '@/utils/userId'
 import { exportBudgetPdf } from '@/utils/pdfExport'
 import { useLanguage } from '@/context/LanguageContext'
 
-const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
 const YEAR = new Date().getFullYear()
 
 const DEFAULT_CATEGORIES = [
@@ -42,7 +41,7 @@ export default function BudgetAllocation() {
   useEffect(() => {
     ; (async () => {
       try {
-        const res = await axios.get(`/api/budget/${panchayatId}`)
+        const res = await apiClient.get(`/api/budget/${panchayatId}`)
         if (res.data?.allocations?.length) {
           setItems(res.data.allocations)
         }
@@ -58,7 +57,7 @@ export default function BudgetAllocation() {
   const saveBudget = async () => {
     setSaving(true)
     try {
-      await axios.post('/api/budget', {
+      await apiClient.post('/api/budget', {
         panchayatId,
         year: YEAR,
         allocations: items,
@@ -77,7 +76,7 @@ export default function BudgetAllocation() {
   const fetchHistory = async () => {
     setHistoryLoading(true)
     try {
-      const res = await axios.get(`/api/budget/${panchayatId}/history`)
+      const res = await apiClient.get(`/api/budget/${panchayatId}/history`)
       setHistory(res.data.budgets || [])
     } catch {
       setHistory([])
@@ -99,7 +98,7 @@ export default function BudgetAllocation() {
       const currentAllocations = {}
       items.forEach(i => { currentAllocations[i.category] = i.allocated })
 
-      const res = await axios.post(`${AI_BASE}/ai/budget/suggest`, {
+      const res = await aiClient.post('/budget/suggest', {
         panchayatId,
         population: 2000,
         current_allocations: currentAllocations,

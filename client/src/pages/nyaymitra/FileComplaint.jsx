@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Mic, MicOff, Download, Send, MessageSquare, Loader2, AlertCircle, CheckCircle2, User, MapPin, Pencil, Shield, Mail, KeyRound, X, Info } from 'lucide-react'
-import axios from 'axios'
+import { apiClient, aiClient } from '@/lib/axios'
 import toast from 'react-hot-toast'
 import { jsPDF } from 'jspdf'
 import Button from '@/components/ui/Button'
@@ -129,7 +129,7 @@ export default function FileComplaint() {
           formData.append('language', spokenLang)
 
           // Call backend voice transcribe (which calls AWS Transcribe)
-          const response = await axios.post('/api/voice/transcribe', formData, {
+          const response = await apiClient.post('/api/voice/transcribe', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
             timeout: 30000,
           })
@@ -160,14 +160,14 @@ export default function FileComplaint() {
 
     try {
       // Step 1: Categorize
-      const catResponse = await axios.post('/ai/legal/categorize', {
+      const catResponse = await aiClient.post('/legal/categorize', {
         transcript,
         language,
       })
       setCategory(catResponse.data)
 
       // Step 2: Generate notice
-      const noticeResponse = await axios.post('/ai/legal/generate-notice', {
+      const noticeResponse = await aiClient.post('/legal/generate-notice', {
         transcript,
         language,
         category: catResponse.data.category,
@@ -193,7 +193,7 @@ export default function FileComplaint() {
     setError(null)
 
     try {
-      const response = await axios.post('/api/cases', {
+      const response = await apiClient.post('/api/cases', {
         userId: getUserId(),
         type: category?.category || 'wage-dispute',
         description: transcript,
@@ -362,7 +362,7 @@ export default function FileComplaint() {
     if (!caseId) { toast.error('Case not filed yet'); return }
     setDispatchLoading(true)
     try {
-      const res = await axios.post(`/api/cases/${caseId}/dispatch-email`, {
+      const res = await apiClient.post(`/api/cases/${caseId}/dispatch-email`, {
         respondentEmail,
         noticeText: reconstructedNotice,
         isSigned,
