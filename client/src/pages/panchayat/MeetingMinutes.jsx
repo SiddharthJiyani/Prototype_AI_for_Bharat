@@ -13,7 +13,7 @@ import { exportMeetingMinutesPdf } from '@/utils/pdfExport'
 import { useLanguage } from '@/context/LanguageContext'
 
 const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
-const SERVER_BASE = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
+const SERVER_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const PANCHAYAT_ID = 'default'  // TODO: pull from user context when multi-panchayat is implemented
 
 export default function MeetingMinutes() {

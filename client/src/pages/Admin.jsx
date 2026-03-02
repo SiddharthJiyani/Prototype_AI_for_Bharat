@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import { useLanguage } from '@/context/LanguageContext'
 
-const SERVER_BASE = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
+const SERVER_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 const SEVERITY_COLORS = {
   warning: 'text-amber-500',
