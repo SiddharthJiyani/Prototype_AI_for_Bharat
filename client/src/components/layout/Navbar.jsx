@@ -10,7 +10,7 @@ const NAV_KEYS = [
   { labelKey: 'nav_home', href: '/' },
   { labelKey: 'nav_nyaymitra', href: '/nyaymitra' },
   { labelKey: 'nav_panchayatgpt', href: '/panchayat' },
-  { labelKey: 'nav_admin', href: '/admin' },
+  { labelKey: 'nav_admin', href: '/admin', adminOnly: true },
 ]
 
 export default function Navbar() {
@@ -23,6 +23,10 @@ export default function Navbar() {
 
   const isActive = (href) =>
     href === '/' ? location.pathname === '/' : location.pathname.startsWith(href)
+
+  const visibleLinks = NAV_KEYS.filter(
+    (link) => !link.adminOnly || user?.role === 'admin'
+  )
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -40,7 +44,7 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {NAV_KEYS.map((link) => (
+            {visibleLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
@@ -100,7 +104,7 @@ export default function Navbar() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden border-t border-border bg-background px-4 py-3 space-y-1">
-          {NAV_KEYS.map((link) => (
+          {visibleLinks.map((link) => (
             <Link
               key={link.href}
               to={link.href}

@@ -69,7 +69,6 @@ const SERVICE_KEYS = [
     titleKey: "scheme_eligibility",
     descKey: "scheme_eligibility_desc",
     href: "/panchayat/schemes",
-    badge: null,
     badge: 'Voice',
   },
 ];
