@@ -66,3 +66,14 @@ def get_stats():
     """Get collection statistics."""
     collection = get_collection()
     return {"total_documents": collection.count()}
+
+
+def delete_collection(name: str = "legal_knowledge"):
+    """Delete the collection and reset the cached reference."""
+    global _collection
+    client = get_client()
+    try:
+        client.delete_collection(name=name)
+    except Exception:
+        pass
+    _collection = None

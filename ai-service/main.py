@@ -40,11 +40,11 @@ async def startup_event():
     """Seed legal knowledge base on first startup."""
     try:
         from rag.knowledge_base import seed_knowledge_base
-        print("Seeding legal knowledge base...")
+        print("Seeding legal knowledge base...", flush=True)
         seed_knowledge_base()
-        print("Knowledge base ready.")
+        print("Knowledge base ready.", flush=True)
     except Exception as e:
-        print(f"Warning: Knowledge base seeding failed: {e}")
+        print(f"Warning: Knowledge base seeding failed: {e}", flush=True)
 
 
 @app.get("/ai/health")
