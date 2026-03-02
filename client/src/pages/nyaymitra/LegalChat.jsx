@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
-import axios from 'axios'
+import { apiClient, aiClient } from '@/lib/axios'
 import toast from 'react-hot-toast'
 import { useLanguage, LANGUAGES } from '@/context/LanguageContext'
 
@@ -317,7 +317,7 @@ export default function LegalChat() {
         content: m.content,
       }))
 
-      const res = await axios.post('/ai/rag/chat', {
+      const res = await aiClient.post('/rag/chat', {
         question,
         language,
         chat_history: chatHistory,
@@ -388,7 +388,7 @@ export default function LegalChat() {
     formData.append('audio', blob, 'recording.webm')
     formData.append('language', spokenLang)
     try {
-      const res = await axios.post('/api/voice/transcribe', formData, {
+      const res = await apiClient.post('/api/voice/transcribe', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       const transcript = res.data.transcript || ''

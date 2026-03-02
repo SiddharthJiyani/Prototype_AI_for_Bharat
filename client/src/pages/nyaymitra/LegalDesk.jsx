@@ -12,7 +12,7 @@ import Button from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
-import axios from 'axios'
+import { apiClient, aiClient } from '@/lib/axios'
 import toast from 'react-hot-toast'
 import { getUserId } from '@/utils/userId'
 
@@ -107,7 +107,7 @@ export default function LegalDesk() {
   const loadHistory = async () => {
     setHistoryLoading(true)
     try {
-      const res = await axios.get(`/api/documents?userId=${userId}`)
+      const res = await apiClient.get(`/api/documents?userId=${userId}`)
       setHistory(res.data.documents || [])
     } catch {
       // Silently fail — history is non-critical
@@ -121,13 +121,13 @@ export default function LegalDesk() {
     try {
       if (docId) {
         // Update existing
-        await axios.put(`/api/documents/${docId}`, {
+        await apiClient.put(`/api/documents/${docId}`, {
           analyses: data.analyses,
           chatMessages: data.chatMessages,
         })
       } else {
         // Create new
-        const res = await axios.post('/api/documents', {
+        const res = await apiClient.post('/api/documents', {
           userId,
           fileName: data.fileName || fileName,
           documentText: data.documentText || documentText,
@@ -156,7 +156,7 @@ export default function LegalDesk() {
   const loadFromHistory = async (docId) => {
     setLoading((prev) => ({ ...prev, history: true }))
     try {
-      const res = await axios.get(`/api/documents/${docId}`)
+      const res = await apiClient.get(`/api/documents/${docId}`)
       const doc = res.data
       setDocumentText(doc.documentText || '')
       setFileName(doc.fileName || 'Document')
@@ -176,7 +176,7 @@ export default function LegalDesk() {
   const deleteFromHistory = async (docId, e) => {
     e.stopPropagation()
     try {
-      await axios.delete(`/api/documents/${docId}`)
+      await apiClient.delete(`/api/documents/${docId}`)
       setHistory((prev) => prev.filter((d) => d.docId !== docId))
       if (currentDocId === docId) {
         resetToUpload()
@@ -237,7 +237,7 @@ export default function LegalDesk() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('analysis_type', 'summary')
-      const res = await axios.post('/ai/rag/analyze-file', formData, {
+      const res = await aiClient.post('/rag/analyze-file', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
@@ -299,7 +299,7 @@ export default function LegalDesk() {
 
     setLoading((prev) => ({ ...prev, [type]: true }))
     try {
-      const res = await axios.post('/ai/rag/analyze', {
+      const res = await aiClient.post('/rag/analyze', {
         text: doc,
         analysis_type: type,
       })
@@ -352,7 +352,7 @@ export default function LegalDesk() {
     setChatLoading(true)
 
     try {
-      const res = await axios.post('/ai/rag/doc-chat', {
+      const res = await aiClient.post('/rag/doc-chat', {
         question: q,
         document_text: documentText,
         language: 'en',
