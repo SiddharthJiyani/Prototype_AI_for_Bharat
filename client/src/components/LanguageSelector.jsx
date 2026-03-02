@@ -11,8 +11,10 @@ export default function LanguageSelector({ showCapabilities = false, className =
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
+      <label htmlFor="language-select" className="sr-only">Select language</label>
       <Globe size={14} className="text-muted-foreground shrink-0" />
       <select
+        id="language-select"
         value={language}
         onChange={(e) => setLanguage(e.target.value)}
         className="rounded-md border border-input bg-background px-2 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"

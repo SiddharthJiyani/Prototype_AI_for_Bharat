@@ -180,6 +180,7 @@ export default function Landing() {
           <div className="flex flex-col items-center gap-2 pt-2">
             <button
               onClick={() => navigate('/nyaymitra/file')}
+              aria-label="File complaint with voice input"
               className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shadow-sm"
             >
               <Mic size={22} />
@@ -293,7 +294,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-6">
             {HOW_IT_WORKS.map((step) => (
               <div key={step.step} className="space-y-3">
-                <span className="text-3xl font-bold text-border">{step.step}</span>
+                <span className="text-3xl font-bold text-primary">{step.step}</span>
                 <h3 className="text-sm font-semibold">{t(step.titleKey)}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{t(step.descKey)}</p>
               </div>

@@ -167,6 +167,7 @@ export default function SchemeSearch() {
             <button
               onClick={recording ? stopRecording : startRecording}
               disabled={transcribing}
+              aria-label={transcribing ? 'Transcribing audio' : recording ? 'Stop recording' : 'Start recording voice input'}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 ${recording
                 ? 'bg-destructive text-destructive-foreground animate-pulse'
                 : transcribing

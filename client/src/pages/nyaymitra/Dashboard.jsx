@@ -150,6 +150,7 @@ export default function NyayDashboard() {
       <div className="flex flex-col items-center gap-3 py-4">
         <button
           onClick={() => navigate("/nyaymitra/chat")}
+          aria-label="Open legal chat with voice input"
           className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shadow-sm active:scale-95">
           <Mic size={22} />
         </button>
