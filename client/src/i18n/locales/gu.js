@@ -235,7 +235,7 @@ const gu = {
   legal_case: 'કાનૂની કેસ',
 
   // ── Landing Page ──
-  welcome_digital_gov: 'ડિજિટલ શાસનમાં આપનું સ્વાગત છે',
+  welcome_digital_gov: 'ડિજિટલ સેવામાં આપનું સ્વાગત છે',
   select_lang_role: 'શરૂ કરવા ભાષા અને ભૂમિકા પસંદ કરો',
   choose_language: 'તમારી ભાષા પસંદ કરો',
   select_user_type: 'વપરાશકર્તા પ્રકાર પસંદ કરો',

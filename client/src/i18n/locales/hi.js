@@ -1,7 +1,7 @@
 const hi = {
     // ── Common ──
     panchayatgpt: 'पंचायतGPT',
-    governance_dashboard: 'शासन डैशबोर्ड',
+    governance_dashboard: 'सेवा डैशबोर्ड',
     manage_panchayat: 'अपनी पंचायत का संचालन कुशलतापूर्वक करें',
     back_to_dashboard: 'डैशबोर्ड पर वापस जाएं',
     refresh: 'रिफ्रेश',
@@ -234,7 +234,7 @@ const hi = {
     legal_case: 'कानूनी केस',
 
     // ── Landing Page ──
-    welcome_digital_gov: 'डिजिटल शासन में आपका स्वागत है',
+    welcome_digital_gov: 'डिजिटल सेवा में आपका स्वागत है',
     select_lang_role: 'शुरू करने के लिए अपनी भाषा और भूमिका चुनें',
     choose_language: 'अपनी भाषा चुनें',
     select_user_type: 'उपयोगकर्ता प्रकार चुनें',
