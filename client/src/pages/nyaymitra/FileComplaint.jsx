@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import { getUserId } from '@/utils/userId'
 import { useLanguage } from '@/context/LanguageContext'
-import { getAuthoritiesForCategory } from '@/lib/authorityData'
+import { getAuthoritiesForCategory, CATEGORY_SCOPES } from '@/lib/authorityData'
 
 const STEPS = ['Input', 'Review', 'Confirm']
 
@@ -37,8 +37,10 @@ export default function FileComplaint() {
   // email dispatch state — each entry: { email, label, isAutoFilled }
   const [respondentEmails, setRespondentEmails] = useState([{ email: '', label: '', isAutoFilled: false }])
   const [dispatchLoading, setDispatchLoading] = useState(false)
-  const [dispatchResult, setDispatchResult] = useState(null)
-  // guarded editor state
+  const [dispatchResult, setDispatchResult] = useState(null)  // recipient resolution state
+  const [recipientResolveLoading, setRecipientResolveLoading] = useState(false)
+  const [recipientType, setRecipientType] = useState(null)   // "government" | "private" | "mixed"
+  const [recipientHint, setRecipientHint] = useState('')  // guarded editor state
   const [guardedSegments, setGuardedSegments] = useState([])
   const [noticeFields, setNoticeFields] = useState({})
   const [spokenLang, setSpokenLang] = useState('hi') // spoken language for transcription (independent of UI language)
@@ -74,12 +76,55 @@ export default function FileComplaint() {
   // Clear draft after successful filing
   const clearDraft = () => localStorage.removeItem(DRAFT_KEY)
 
-  // Auto-populate authority emails whenever the AI detects a category
+  // Smart recipient resolution whenever the AI detects a category
   useEffect(() => {
     if (!category?.category) return
-    const authorities = getAuthoritiesForCategory(category.category)
-    setRespondentEmails(authorities.map(a => ({ email: a.email, label: a.label, isAutoFilled: true })))
-  }, [category])
+    const scope = CATEGORY_SCOPES[category.category] ?? 'mixed'
+
+    // Fast path: purely government categories need no LLM call
+    if (scope === 'government') {
+      const authorities = getAuthoritiesForCategory(category.category)
+      setRespondentEmails(authorities.map(a => ({ email: a.email, label: a.label, isAutoFilled: true, isPrivateParty: false })))
+      setRecipientType('government')
+      setRecipientHint('Complaint is against a government authority — relevant officials auto-filled.')
+      return
+    }
+
+    // Mixed / ambiguous → ask AI to read the transcript and decide
+    setRecipientResolveLoading(true)
+    setRecipientType(null)
+    setRecipientHint('')
+    setRespondentEmails([{ email: '', label: '', isAutoFilled: false, isPrivateParty: false }])
+
+    aiClient.post('/legal/resolve-recipients', {
+      category: category.category,
+      transcript,
+      language,
+    }).then(res => {
+      const { recipient_type, show_private_field, private_party_label, hint } = res.data
+      setRecipientType(recipient_type)
+      setRecipientHint(hint || '')
+
+      const authorityEntries = recipient_type !== 'private'
+        ? getAuthoritiesForCategory(category.category).map(a => ({ email: a.email, label: a.label, isAutoFilled: true, isPrivateParty: false }))
+        : []
+
+      const privateEntry = show_private_field
+        ? [{ email: '', label: private_party_label || 'Other party', isAutoFilled: false, isPrivateParty: true }]
+        : []
+
+      const combined = [...authorityEntries, ...privateEntry]
+      setRespondentEmails(combined.length ? combined : [{ email: '', label: '', isAutoFilled: false, isPrivateParty: false }])
+    }).catch(() => {
+      // Fallback: show full static authority list
+      const authorities = getAuthoritiesForCategory(category.category)
+      setRespondentEmails(authorities.map(a => ({ email: a.email, label: a.label, isAutoFilled: true, isPrivateParty: false })))
+      setRecipientType('mixed')
+      setRecipientHint('')
+    }).finally(() => {
+      setRecipientResolveLoading(false)
+    })
+  }, [category]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parse notice into guarded segments whenever notice changes
   useEffect(() => {
@@ -362,7 +407,7 @@ export default function FileComplaint() {
   }
 
   // ── Email dispatch + Section 65B certificate ─────────────────────────────
-  const addEmailField = () => setRespondentEmails(prev => [...prev, { email: '', label: '', isAutoFilled: false }])
+  const addEmailField = () => setRespondentEmails(prev => [...prev, { email: '', label: '', isAutoFilled: false, isPrivateParty: false }])
   const removeEmailField = (idx) => setRespondentEmails(prev => prev.filter((_, i) => i !== idx))
   const updateEmailAt = (idx, val) => setRespondentEmails(prev => prev.map((e, i) => i === idx ? { ...e, email: val, isAutoFilled: false } : e))
 
@@ -766,7 +811,7 @@ export default function FileComplaint() {
               <div className="flex flex-wrap gap-2 justify-center pt-1">
                 <Button variant="outline" onClick={() => navigate(`/nyaymitra/cases/${caseId}`)}>{t('view_case')}</Button>
                 <Button onClick={() => navigate('/nyaymitra/cases')}>{t('view_all')}</Button>
-                <Button variant="ghost" onClick={() => { setStep(0); setTranscript(''); setCaseId(null); setNotice(null); setCategory(null); setIsSigned(false); setDispatchResult(null); setRespondentEmails([{ email: '', label: '', isAutoFilled: false }]) }}>{t('file_another')}</Button>
+                <Button variant="ghost" onClick={() => { setStep(0); setTranscript(''); setCaseId(null); setNotice(null); setCategory(null); setIsSigned(false); setDispatchResult(null); setRespondentEmails([{ email: '', label: '', isAutoFilled: false, isPrivateParty: false }]); setRecipientType(null); setRecipientHint('') }}>{t('file_another')}</Button>
               </div>
             </CardContent>
           </Card>
@@ -784,68 +829,107 @@ export default function FileComplaint() {
               </p>
               {!dispatchResult ? (
                 <>
-                  {/* DEMO notice banner */}
-                  <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2">
-                    <Info size={13} className="text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-300">
-                      <strong>Demo Data:</strong> Emails below are placeholder addresses for prototype demonstration. In production these will be fetched from official government directories (rtionline.gov.in, pgportal.gov.in, state portals).
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    {respondentEmails.map((entry, idx) => (
-                      <div key={idx} className="space-y-1">
-                        {entry.label && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-foreground/80">{entry.label}</span>
-                            {entry.isAutoFilled && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">AUTO</span>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <input
-                            type="email"
-                            value={entry.email}
-                            onChange={e => updateEmailAt(idx, e.target.value)}
-                            placeholder={entry.label || (idx === 0 ? "Recipient email address" : `Recipient ${idx + 1} email address`)}
-                            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          {respondentEmails.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeEmailField(idx)}
-                              className="shrink-0 rounded-md border border-input bg-background px-2.5 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors text-sm"
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          )}
+                  {/* Recipient type indicator */}
+                  <div className="flex items-start gap-2 rounded-md bg-secondary/50 border border-border px-3 py-2">
+                    <Info size={13} className="text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      {recipientResolveLoading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 size={12} className="animate-spin text-primary" />
+                          <span className="text-xs text-muted-foreground">Determining who should receive this notice…</span>
                         </div>
-                      </div>
-                    ))}
-
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={addEmailField}
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
-                      >
-                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-current text-xs leading-none">+</span>
-                        Add another recipient
-                      </button>
-                      <Button
-                        onClick={dispatchEmail}
-                        disabled={dispatchLoading || respondentEmails.every(e => !e.email.trim())}
-                        className="gap-1.5 shrink-0"
-                      >
-                        {dispatchLoading
-                          ? <><Loader2 size={13} className="animate-spin" /> Sending...</>
-                          : <><Mail size={13} /> Dispatch to {respondentEmails.filter(e => e.email.trim()).length || 1}</>
-                        }
-                      </Button>
+                      ) : recipientType ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                            recipientType === 'government' ? 'bg-blue-500/15 text-blue-400' :
+                            recipientType === 'private'   ? 'bg-purple-500/15 text-purple-400' :
+                                                            'bg-amber-500/15 text-amber-400'
+                          }`}>
+                            {recipientType === 'government' ? '🏛 Government Authority' :
+                             recipientType === 'private'    ? '👤 Private Party' :
+                                                              '⚖ Government + Private Party'}
+                          </span>
+                          {recipientHint && <span className="text-xs text-muted-foreground">{recipientHint}</span>}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Demo Data:</strong> Placeholder emails using RFC 2606-reserved <code>.example</code> domain — safe, cannot reach any real inbox.
+                        </p>
+                      )}
                     </div>
                   </div>
+
+                  {/* Email fields — loading skeleton */}
+                  {recipientResolveLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-10 rounded-md bg-secondary/60 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {respondentEmails.map((entry, idx) => (
+                        <div key={idx} className="space-y-1">
+                          {entry.label && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-foreground/80">{entry.label}</span>
+                              {entry.isAutoFilled && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">AUTO</span>
+                              )}
+                              {entry.isPrivateParty && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 font-medium">OTHER PARTY</span>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="email"
+                              value={entry.email}
+                              onChange={e => updateEmailAt(idx, e.target.value)}
+                              placeholder={entry.isPrivateParty
+                                ? `Enter email of: ${entry.label || 'other party'}`
+                                : (entry.label || (idx === 0 ? 'Recipient email address' : `Recipient ${idx + 1} email address`))
+                              }
+                              className={`flex-1 rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
+                                entry.isPrivateParty ? 'border-purple-500/40' : 'border-input'
+                              }`}
+                            />
+                            {respondentEmails.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeEmailField(idx)}
+                                className="shrink-0 rounded-md border border-input bg-background px-2.5 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors text-sm"
+                                title="Remove"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={addEmailField}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
+                        >
+                          <span className="flex items-center justify-center w-4 h-4 rounded-full border border-current text-xs leading-none">+</span>
+                          Add another recipient
+                        </button>
+                        <Button
+                          onClick={dispatchEmail}
+                          disabled={dispatchLoading || respondentEmails.every(e => !e.email.trim())}
+                          className="gap-1.5 shrink-0"
+                        >
+                          {dispatchLoading
+                            ? <><Loader2 size={13} className="animate-spin" /> Sending...</>
+                            : <><Mail size={13} /> Dispatch to {respondentEmails.filter(e => e.email.trim()).length || 1}</>
+                          }
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {!isSigned && (
                     <p className="text-xs text-amber-400 flex items-center gap-1.5">

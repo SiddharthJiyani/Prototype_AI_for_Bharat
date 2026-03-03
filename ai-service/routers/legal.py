@@ -581,6 +581,141 @@ Return ONLY valid JSON:
     return json.loads(text[start:end])
 
 
+# ── Recipient resolution ─────────────────────────────────────────────────
+# Fast static path: clearly-government categories skip the LLM entirely.
+# Only "mixed" and "Other" categories invoke Bedrock to read the transcript.
+_GOVERNMENT_ONLY = {
+    "MGNREGA Wage Dispute",
+    "RTI Application",
+    "Public Nuisance / Municipal Complaint",
+    "Police Misconduct / Accountability",
+    "Environmental Rights",
+    "Disability Rights",
+    "Education Rights",
+    "Government Scheme Denial",
+    "Free Legal Aid Request",
+    "Criminal Rights / Arrest",
+}
+
+_MIXED_CATEGORIES = {
+    "Consumer Complaint",
+    "Labour Rights",
+    "Land Dispute",
+    "Property Dispute",
+    "Domestic Violence",
+    "Caste Discrimination / SC-ST Atrocity",
+    "Child Rights",
+    "Healthcare Rights",
+    "Senior Citizen Rights",
+    "Cyber Crime",
+}
+
+_PRIVATE_PARTY_LABELS = {
+    "Domestic Violence":                    "Abuser / Respondent",
+    "Labour Rights":                        "Employer / Company",
+    "Land Dispute":                         "Other party in the dispute",
+    "Property Dispute":                     "Other party in the dispute",
+    "Consumer Complaint":                   "Shopkeeper / Service provider",
+    "Healthcare Rights":                    "Hospital / Doctor",
+    "Senior Citizen Rights":                "Family member / caretaker",
+    "Cyber Crime":                          "Accused (if known)",
+    "Caste Discrimination / SC-ST Atrocity":"Accused / Aggressor",
+    "Child Rights":                         "Responsible party (school / employer / guardian)",
+}
+
+
+@router.post("/resolve-recipients")
+async def resolve_recipients(body: dict):
+    """
+    Decide WHO should receive a legal notice for a given complaint.
+
+    For clearly government-facing categories (RTI, MGNREGA, Public Nuisance, etc.)
+    it returns the static authority list immediately — no LLM call.
+
+    For mixed / ambiguous categories it uses Bedrock to read the transcript
+    and determine whether the dispute is:
+      - "government"  → only govt authorities
+      - "private"     → only the other private party (complainant fills the email)
+      - "mixed"       → both govt authorities AND a field for the private party
+
+    Body:  { category: str, transcript: str, language: str }
+    Returns: {
+        recipient_type: "government" | "private" | "mixed",
+        authorities: [{ label, dept }],   # empty for pure-private
+        show_private_field: bool,
+        private_party_label: str,         # contextual label for the empty field
+        hint: str                         # short UI hint sentence
+    }
+    """
+    category  = body.get("category", "Other")
+    transcript = body.get("transcript", "")
+    language  = body.get("language", "hi")
+
+    # ── Fast path: purely government categories ───────────────────────────
+    if category in _GOVERNMENT_ONLY:
+        return {
+            "recipient_type": "government",
+            "authorities": [],          # frontend fills from its static map
+            "show_private_field": False,
+            "private_party_label": "",
+            "hint": "Complaint is against a government authority — relevant officials have been auto-filled.",
+        }
+
+    # ── LLM path: mixed / ambiguous / Other ──────────────────────────────
+    private_label_hint = _PRIVATE_PARTY_LABELS.get(category, "Other party in the dispute")
+
+    prompt = f"""You are a legal AI assistant for India.
+A citizen has filed the following complaint (category: {category}).
+Read the complaint carefully and decide who should receive the legal notice.
+
+Complaint: {transcript}
+
+Possible recipient types:
+1. "government"  — The complaint is ONLY against a government authority / public body
+   (e.g. RTI denial, scheme not given, public nuisance by a municipal body).
+2. "private"     — The complaint is ONLY about a dispute between two private individuals
+   or a private entity (e.g. landlord-tenant, unpaid salary by a private company,
+   domestic violence within family). No government authority needs to be notified first.
+3. "mixed"       — BOTH a private party AND a government authority should be notified
+   (e.g. cyber crime where police must be informed AND the platform / attacker contacted;
+   labour dispute where employer AND labour inspector both need notice).
+
+Also provide:
+- "private_party_label": a short label describing WHO the private party is
+  (e.g. "Employer / Company", "Landlord", "Accused family member").
+  Return null if recipient_type is "government".
+- "hint": one short sentence (in English) to show the user explaining this decision.
+
+Return ONLY valid JSON — no commentary:
+{{
+  "recipient_type": "<government|private|mixed>",
+  "private_party_label": "<label or null>",
+  "hint": "<one sentence>"
+}}"""
+
+    try:
+        text = invoke_bedrock(prompt, max_tokens=256)
+        start = text.find("{")
+        end   = text.rfind("}") + 1
+        data  = json.loads(text[start:end])
+        rtype = data.get("recipient_type", "mixed")
+        plabel = data.get("private_party_label") or private_label_hint
+        hint  = data.get("hint", "")
+    except Exception:
+        # Safe fallback for LLM errors
+        rtype  = "mixed"
+        plabel = private_label_hint
+        hint   = "Could not determine automatically — please review recipients below."
+
+    return {
+        "recipient_type": rtype,
+        "authorities": [],          # frontend fills from its static map
+        "show_private_field": rtype in ("private", "mixed"),
+        "private_party_label": plabel if rtype != "government" else "",
+        "hint": hint,
+    }
+
+
 @router.get("/categories")
 async def list_categories():
     """Return all supported complaint categories with their applicable laws and helplines."""

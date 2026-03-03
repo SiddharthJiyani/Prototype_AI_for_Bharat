@@ -257,6 +257,14 @@ flowchart LR
 ### NyayMitra — Legal Aid for Citizens
 - **Voice Complaint Filing** — Speak in Hindi, English, Tamil, Telugu, Marathi; AI transcribes via Amazon Transcribe
 - **AI Legal Notice Generation** — Bedrock (Claude) generates attorney-quality notices citing exact law sections (MGNREGA §7, Consumer Protection Act §35, etc.)
+- **Smart Recipient Resolution** — Before showing email fields, the AI reads the complaint transcript and determines *who* should actually receive the notice. Complaint types are classified into three modes:
+  - 🏛 **Government** (RTI, MGNREGA, Public Nuisance, Police Misconduct, etc.) — relevant authority emails auto-filled instantly, no LLM call needed
+  - 👤 **Private Party** (landlord-tenant, salary dispute, interpersonal conflict) — no government authority pre-filled; a single blank field appears labelled contextually (e.g. *"Employer / Company"*) for the complainant to enter the other party's email
+  - ⚖ **Mixed** (domestic violence, labour dispute with employer, cyber crime) — authority emails pre-filled AND an additional blank **OTHER PARTY** field added for the private party's email
+- **Multi-Recipient Dispatch** — Notice sent simultaneously to all filled email addresses in one click. Recipients can be added with `+`, removed with `×`, or edited at any time before sending.
+- **Authority Database** — Built-in mapping of all 20 complaint categories to responsible government authorities (Municipal Corporations, District Collectors, RTI PIOs, NHRC, NCPCR, NGT, Labour Commissioner, etc.). All placeholder emails use the RFC 2606-reserved `.example` TLD in demo mode — guaranteed non-deliverable to any real inbox.
+- **Section 65B Evidence Act Certificate** — Generated automatically after every digital dispatch. Includes server timestamp, IP address, and message ID — making the delivery admissible as primary electronic evidence in Indian courts.
+- **eSign (IT Act 2000)** — Aadhaar-OTP based digital signature flow; signed notices carry a legally valid signature block before dispatch.
 - **Case Tracking** — Timeline view with status badges: Filed → Under Review → Notice Sent → Resolved
 - **Polly Audio Playback** — Legal notice read aloud in the user's language (critical for low-literacy users)
 - **eCourt Integration** — Auto-generates official case reference numbers (mock eCourt filing)
@@ -445,6 +453,7 @@ npm run dev
 | Express | `/api/auth/signup` | POST | Register user (citizen / sarpanch) |
 | Express | `/api/auth/login` | POST | Login → JWT token |
 | Express | `/api/cases` | POST / GET | File or list complaints |
+| Express | `/api/cases/:id/dispatch-email` | POST | Dispatch notice to one or multiple recipients; returns Section 65B metadata |
 | Express | `/api/grievances` | POST / GET / PATCH | Village grievances CRUD |
 | Express | `/api/meetings` | POST / GET / DELETE | Gram Sabha MOMs |
 | Express | `/api/admin/stats` | GET | Live dashboard aggregates |
@@ -452,6 +461,7 @@ npm run dev
 | AI | `/ai/voice/transcribe` | POST | Audio file → text (Transcribe) |
 | AI | `/ai/legal/categorize` | POST | Transcript → complaint category |
 | AI | `/ai/legal/generate-notice` | POST | Transcript + category → legal notice |
+| AI | `/ai/legal/resolve-recipients` | POST | Transcript + category → recipient type (`government`\|`private`\|`mixed`) + contextual labels; government-scope categories resolved instantly without LLM; mixed/ambiguous categories invoke Bedrock |
 | AI | `/ai/schemes/search` | POST | Voice query → matched schemes |
 | AI | `/ai/budget/suggest` | POST | Village profile → allocation |
 | AI | `/ai/meetings/generate-minutes` | POST | Transcript → Gram Sabha minutes |

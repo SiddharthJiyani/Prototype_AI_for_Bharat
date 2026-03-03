@@ -14,6 +14,37 @@
  * ──────────────────────────────────────────────────────────────────────────
  */
 
+/**
+ * Scope classification for each category.
+ * Used as an optimistic pre-fill hint while the AI endpoint resolves recipients.
+ *   "government" — complaint is always against a public authority
+ *   "mixed"      — may involve both a private party and an authority (AI decides)
+ *   "private"    — default assumption is a dispute between two private parties
+ */
+export const CATEGORY_SCOPES = {
+  'Public Nuisance / Municipal Complaint':    'government',
+  'MGNREGA Wage Dispute':                     'government',
+  'RTI Application':                          'government',
+  'Police Misconduct / Accountability':       'government',
+  'Environmental Rights':                     'government',
+  'Disability Rights':                        'government',
+  'Education Rights':                         'government',
+  'Government Scheme Denial':                 'government',
+  'Free Legal Aid Request':                   'government',
+  'Criminal Rights / Arrest':                 'government',
+  'Consumer Complaint':                       'mixed',
+  'Labour Rights':                            'mixed',
+  'Land Dispute':                             'mixed',
+  'Property Dispute':                         'mixed',
+  'Domestic Violence':                        'mixed',
+  'Caste Discrimination / SC-ST Atrocity':    'mixed',
+  'Child Rights':                             'mixed',
+  'Healthcare Rights':                        'mixed',
+  'Senior Citizen Rights':                    'mixed',
+  'Cyber Crime':                              'mixed',
+  'Other':                                    'mixed',
+}
+
 /** Authorities keyed by the exact category string returned by the AI categorizer */
 export const AUTHORITY_MAP = {
 
