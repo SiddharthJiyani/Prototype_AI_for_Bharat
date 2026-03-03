@@ -33,6 +33,7 @@ COMPLAINT_CATEGORIES = [
     "Child Rights",
     "Healthcare Rights",
     "Environmental Rights",
+    "Public Nuisance / Municipal Complaint",
     "Police Misconduct / Accountability",
     "Caste Discrimination / SC-ST Atrocity",
     "Senior Citizen Rights",
@@ -57,6 +58,7 @@ CATEGORY_LAWS = {
     "Child Rights": "POCSO Act 2012; Juvenile Justice Act 2015; Child Labour (Prohibition and Regulation) Amendment Act 2016; Child Marriage Prohibition Act 2006",
     "Healthcare Rights": "Clinical Establishments Act 2010; Mental Healthcare Act 2017; Maternity Benefit Act 1961",
     "Environmental Rights": "Environment Protection Act 1986; National Green Tribunal Act 2010; Water (Prevention and Control of Pollution) Act 1974",
+    "Public Nuisance / Municipal Complaint": "Indian Penal Code Section 268 (Public Nuisance); Code of Criminal Procedure Section 133 (Conditional Order for Removal of Nuisance); Municipal Corporation Act; Motor Vehicles Act 1988 (for illegal parking)",
     "Police Misconduct / Accountability": "CrPC / BNSS 2023; Prevention of Corruption Act 1988; D.K. Basu Guidelines (SC 1997); Prakash Singh Guidelines (SC 2006)",
     "Caste Discrimination / SC-ST Atrocity": "Scheduled Castes and Scheduled Tribes (Prevention of Atrocities) Act 1989 (amended 2015)",
     "Senior Citizen Rights": "Maintenance and Welfare of Parents and Senior Citizens Act 2007",
@@ -80,6 +82,7 @@ CATEGORY_HELPLINES = {
     "RTI Application": "RTI Online: rtionline.gov.in",
     "Free Legal Aid Request": "NALSA: 15100",
     "Consumer Complaint": "Consumer Helpline: 1800-11-4000",
+    "Public Nuisance / Municipal Complaint": "Municipal Helpline: 155304 | Police: 100 | Civic Issues: 1800-xxx-xxxx",
 }
 
 

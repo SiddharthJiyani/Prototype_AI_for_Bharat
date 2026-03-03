@@ -34,6 +34,21 @@ router.post('/', async (req, res) => {
     }
 
     await dynamo.send(new PutCommand({ TableName: TABLES.CASES, Item: item }))
+
+    // Auto-trigger integration pattern detection (fire-and-forget)
+    // This is the NyayMitra → PanchayatGPT bridge: when a citizen files a case,
+    // the integration engine checks if a pattern threshold is crossed (e.g. 5+
+    // MGNREGA cases in 30 days) and writes an alert to DynamoDB that the
+    // Sarpanch sees on their PanchayatGPT dashboard.
+    if (panchayatId) {
+      const port = process.env.PORT || 5000
+      fetch(`http://localhost:${port}/api/integration/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ panchayatId }),
+      }).catch(() => {}) // never block the case filing response
+    }
+
     return res.status(201).json({ caseId, status: 'Filed', createdAt: now })
   } catch (err) {
     console.error(err)
@@ -122,10 +137,17 @@ router.post('/:id/timeline', async (req, res) => {
 router.post('/:id/dispatch-email', async (req, res) => {
   try {
     const { id } = req.params
-    const { respondentEmail, noticeText, isSigned, signedAt, maskedAadhaar, category, lawCited } = req.body
+    const { respondentEmail, respondentEmails, noticeText, isSigned, signedAt, maskedAadhaar, category, lawCited } = req.body
 
-    if (!respondentEmail || !noticeText) {
-      return res.status(400).json({ error: 'respondentEmail and noticeText are required' })
+    // Support both legacy single string and new array format
+    const toEmails = respondentEmails?.length
+      ? respondentEmails
+      : respondentEmail
+        ? [respondentEmail]
+        : []
+
+    if (!toEmails.length || !noticeText) {
+      return res.status(400).json({ error: 'At least one recipient email and noticeText are required' })
     }
 
     const sentAt = new Date().toISOString()
@@ -156,7 +178,7 @@ router.post('/:id/dispatch-email', async (req, res) => {
 
     const info = await transporter.sendMail({
       from: `"NyayMitra Legal AI" <${process.env.MAIL_USER}>`,
-      to: respondentEmail,
+      to: toEmails.join(', '),
       subject: `Legal Notice — ${category || 'Legal Matter'} [Case: ${id}]`,
       text: emailBody,
     })
@@ -170,7 +192,7 @@ router.post('/:id/dispatch-email', async (req, res) => {
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: {
         ':da': sentAt,
-        ':re': respondentEmail,
+        ':re': toEmails.join(', '),
         ':st': 'In Progress',
         ':ua': sentAt,
       },
@@ -180,7 +202,8 @@ router.post('/:id/dispatch-email', async (req, res) => {
       sentAt,
       messageId: info.messageId,
       serverIp,
-      respondentEmail,
+      respondentEmails: toEmails,
+      respondentEmail: toEmails[0],
       caseId: id,
     })
   } catch (err) {

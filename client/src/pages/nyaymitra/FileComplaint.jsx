@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import { getUserId } from '@/utils/userId'
 import { useLanguage } from '@/context/LanguageContext'
+import { getAuthoritiesForCategory } from '@/lib/authorityData'
 
 const STEPS = ['Input', 'Review', 'Confirm']
 
@@ -33,8 +34,8 @@ export default function FileComplaint() {
   const [otpSent, setOtpSent] = useState(false)
   const [otpInput, setOtpInput] = useState('')
   const [signingLoading, setSigningLoading] = useState(false)
-  // email dispatch state
-  const [respondentEmail, setRespondentEmail] = useState('')
+  // email dispatch state — each entry: { email, label, isAutoFilled }
+  const [respondentEmails, setRespondentEmails] = useState([{ email: '', label: '', isAutoFilled: false }])
   const [dispatchLoading, setDispatchLoading] = useState(false)
   const [dispatchResult, setDispatchResult] = useState(null)
   // guarded editor state
@@ -72,6 +73,13 @@ export default function FileComplaint() {
 
   // Clear draft after successful filing
   const clearDraft = () => localStorage.removeItem(DRAFT_KEY)
+
+  // Auto-populate authority emails whenever the AI detects a category
+  useEffect(() => {
+    if (!category?.category) return
+    const authorities = getAuthoritiesForCategory(category.category)
+    setRespondentEmails(authorities.map(a => ({ email: a.email, label: a.label, isAutoFilled: true })))
+  }, [category])
 
   // Parse notice into guarded segments whenever notice changes
   useEffect(() => {
@@ -354,16 +362,27 @@ export default function FileComplaint() {
   }
 
   // ── Email dispatch + Section 65B certificate ─────────────────────────────
+  const addEmailField = () => setRespondentEmails(prev => [...prev, { email: '', label: '', isAutoFilled: false }])
+  const removeEmailField = (idx) => setRespondentEmails(prev => prev.filter((_, i) => i !== idx))
+  const updateEmailAt = (idx, val) => setRespondentEmails(prev => prev.map((e, i) => i === idx ? { ...e, email: val, isAutoFilled: false } : e))
+
   const dispatchEmail = async () => {
-    if (!respondentEmail || !/\S+@\S+\.\S+/.test(respondentEmail)) {
-      toast.error('Enter a valid respondent email address')
+    const validEmails = respondentEmails.map(e => e.email.trim()).filter(Boolean)
+    if (validEmails.length === 0) {
+      toast.error('Enter at least one recipient email address')
+      return
+    }
+    const emailRegex = /\S+@\S+\.\S+/
+    const invalidEmail = validEmails.find(e => !emailRegex.test(e))
+    if (invalidEmail) {
+      toast.error(`Invalid email address: ${invalidEmail}`)
       return
     }
     if (!caseId) { toast.error('Case not filed yet'); return }
     setDispatchLoading(true)
     try {
       const res = await apiClient.post(`/api/cases/${caseId}/dispatch-email`, {
-        respondentEmail,
+        respondentEmails: validEmails,
         noticeText: reconstructedNotice,
         isSigned,
         signedAt,
@@ -372,7 +391,7 @@ export default function FileComplaint() {
         lawCited: notice?.law_cited,
       })
       setDispatchResult(res.data)
-      toast.success('Notice dispatched! Section 65B certificate ready.')
+      toast.success(`Notice dispatched to ${validEmails.length} recipient${validEmails.length > 1 ? 's' : ''}! Section 65B certificate ready.`)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to dispatch notice')
     } finally {
@@ -747,7 +766,7 @@ export default function FileComplaint() {
               <div className="flex flex-wrap gap-2 justify-center pt-1">
                 <Button variant="outline" onClick={() => navigate(`/nyaymitra/cases/${caseId}`)}>{t('view_case')}</Button>
                 <Button onClick={() => navigate('/nyaymitra/cases')}>{t('view_all')}</Button>
-                <Button variant="ghost" onClick={() => { setStep(0); setTranscript(''); setCaseId(null); setNotice(null); setCategory(null); setIsSigned(false); setDispatchResult(null) }}>{t('file_another')}</Button>
+                <Button variant="ghost" onClick={() => { setStep(0); setTranscript(''); setCaseId(null); setNotice(null); setCategory(null); setIsSigned(false); setDispatchResult(null); setRespondentEmails([{ email: '', label: '', isAutoFilled: false }]) }}>{t('file_another')}</Button>
               </div>
             </CardContent>
           </Card>
@@ -765,18 +784,69 @@ export default function FileComplaint() {
               </p>
               {!dispatchResult ? (
                 <>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      value={respondentEmail}
-                      onChange={e => setRespondentEmail(e.target.value)}
-                      placeholder="Respondent's email address"
-                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <Button onClick={dispatchEmail} disabled={dispatchLoading || !respondentEmail} className="gap-1.5 shrink-0">
-                      {dispatchLoading ? <><Loader2 size={13} className="animate-spin" /> Sending...</> : <><Mail size={13} /> Dispatch</>}
-                    </Button>
+                  {/* DEMO notice banner */}
+                  <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                    <Info size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-300">
+                      <strong>Demo Data:</strong> Emails below are placeholder addresses for prototype demonstration. In production these will be fetched from official government directories (rtionline.gov.in, pgportal.gov.in, state portals).
+                    </p>
                   </div>
+
+                  <div className="space-y-2">
+                    {respondentEmails.map((entry, idx) => (
+                      <div key={idx} className="space-y-1">
+                        {entry.label && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-foreground/80">{entry.label}</span>
+                            {entry.isAutoFilled && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">AUTO</span>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={entry.email}
+                            onChange={e => updateEmailAt(idx, e.target.value)}
+                            placeholder={entry.label || (idx === 0 ? "Recipient email address" : `Recipient ${idx + 1} email address`)}
+                            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          />
+                          {respondentEmails.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeEmailField(idx)}
+                              className="shrink-0 rounded-md border border-input bg-background px-2.5 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors text-sm"
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={addEmailField}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
+                      >
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full border border-current text-xs leading-none">+</span>
+                        Add another recipient
+                      </button>
+                      <Button
+                        onClick={dispatchEmail}
+                        disabled={dispatchLoading || respondentEmails.every(e => !e.email.trim())}
+                        className="gap-1.5 shrink-0"
+                      >
+                        {dispatchLoading
+                          ? <><Loader2 size={13} className="animate-spin" /> Sending...</>
+                          : <><Mail size={13} /> Dispatch to {respondentEmails.filter(e => e.email.trim()).length || 1}</>
+                        }
+                      </Button>
+                    </div>
+                  </div>
+
                   {!isSigned && (
                     <p className="text-xs text-amber-400 flex items-center gap-1.5">
                       <Shield size={11} /> Tip: Go back to Review and eSign the notice to strengthen legal validity before dispatching.
@@ -790,7 +860,7 @@ export default function FileComplaint() {
                     <div>
                       <p className="text-xs font-medium text-emerald-400">Notice dispatched successfully</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Sent to: {dispatchResult.respondentEmail} &middot; {new Date(dispatchResult.sentAt).toLocaleString('en-IN')}
+                        Sent to: {Array.isArray(dispatchResult.respondentEmails) ? dispatchResult.respondentEmails.join(', ') : dispatchResult.respondentEmail} &middot; {new Date(dispatchResult.sentAt).toLocaleString('en-IN')}
                       </p>
                     </div>
                   </div>
