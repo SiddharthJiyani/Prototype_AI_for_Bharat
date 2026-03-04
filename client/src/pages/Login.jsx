@@ -47,6 +47,42 @@ export default function Login() {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
+
+      {/* Fixed admin credentials hint — top-right corner */}
+      <div className="fixed top-[72px] right-4 z-40 w-64 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/80 shadow-lg shadow-amber-100 dark:shadow-amber-950/50 backdrop-blur-sm p-3 space-y-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-lg leading-none">🔑</span>
+          <span className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">Admin Demo Access</span>
+        </div>
+        <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 leading-snug">
+          Click below to auto-fill &amp; access the Admin dashboard:
+        </p>
+        <button
+          onClick={() => {
+            setMode('email')
+            setEmail('admin@gmail.com')
+            setPassword('admin')
+          }}
+          className="w-full text-left rounded-lg bg-white dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 px-2.5 py-2 hover:bg-amber-100 dark:hover:bg-amber-900/70 transition-colors group"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="text-amber-500 font-medium shrink-0">Email</span>
+                <span className="font-mono font-bold text-amber-900 dark:text-amber-200 truncate">admin@gmail.com</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="text-amber-500 font-medium shrink-0">Pass</span>
+                <span className="font-mono font-bold text-amber-900 dark:text-amber-200">admin</span>
+              </div>
+            </div>
+            <span className="text-[10px] text-amber-500 dark:text-amber-400 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+              Fill →
+            </span>
+          </div>
+        </button>
+      </div>
+
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -66,8 +102,8 @@ export default function Login() {
               key={lang.code}
               onClick={() => setLanguage(lang.code)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${language === lang.code
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
                 }`}
             >
               {lang.native} ({lang.label})
@@ -80,8 +116,8 @@ export default function Login() {
           <button
             onClick={() => setMode('quick')}
             className={`flex-1 py-2.5 text-sm font-medium transition-colors ${mode === 'quick'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card text-muted-foreground hover:text-foreground'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-card text-muted-foreground hover:text-foreground'
               }`}
           >
             {t('quick_start')}
@@ -89,8 +125,8 @@ export default function Login() {
           <button
             onClick={() => setMode('email')}
             className={`flex-1 py-2.5 text-sm font-medium transition-colors ${mode === 'email'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card text-muted-foreground hover:text-foreground'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-card text-muted-foreground hover:text-foreground'
               }`}
           >
             {t('email_login')}

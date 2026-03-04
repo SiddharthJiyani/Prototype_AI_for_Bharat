@@ -284,12 +284,22 @@ flowchart LR
 - Multilingual — detects input language (Unicode script analysis), responds in same language
 - Context-window management — caps history to prevent prompt overflow
 
-### Admin Dashboard (Live Data)
-- Real-time DynamoDB stats: total cases, grievances, meetings, active panchayats
-- 6-month trend line charts (cases + grievances side by side)
-- Case type distribution bar chart from actual data
-- Live integration alert feed with severity coloring
-- Auto-refreshes every 30 seconds; manual refresh button
+### Admin Dashboard — Full Platform Control
+
+A fully tabbed admin interface with live data pulled straight from DynamoDB:
+
+| Tab | What admin sees |
+|-----|-----------------|
+| **Overview** | Stat cards (total cases, grievances, meetings, active panchayats) · 6-month trend line chart · case-type distribution bar chart · live integration alert feed with severity colours · auto-refreshes every 30s |
+| **Complaints** | All NyayMitra complaints in a searchable, filterable table (filter by status: Filed / In Progress / Resolved) with complainant name, email, complaint gist, area, and filing date |
+| **Complaint Detail** | Slide-in side panel: full description / legal notice text · complainant info (name, email, phone) · case metadata (law cited, panchayat, dispatch timestamp, Aadhaar masked) · complete event timeline |
+| **Follow-up Email** | Admin can send a follow-up email to any complainant directly from the panel — auto-fills recipient email, sends via nodemailer, and writes an audit event on the case timeline |
+| **Grievances** | All panchayat grievances across DynamoDB with priority badges (High / Medium / Low), status badges (New / Assigned / Resolved), and submitter info |
+| **Meetings** | Card grid of all Gram Sabha meetings; click any card to open the **Meeting Minutes detail panel** |
+| **Meeting Minutes Panel** | Full AI-generated minutes: agenda items · key decisions · action items (assignee + deadline) · schemes discussed (badge chips) · funds approved · next meeting date · Hindi summary · original transcript |
+| **Budget** | All panchayat budget records with per-category spend progress bars; bars turn amber at 70% and red at 90% utilisation |
+
+**Login hint** — A 🔑 *Admin Demo Access* card is pinned to the top-right corner of the Login page. Clicking it auto-fills `admin@gmail.com` / `admin` and switches the form to Email Login mode — one more click to enter.
 
 ### Multilingual (12 Languages)
 Amazon Translate + Polly + Transcribe cover: `hi` `en` `ta` `te` `mr` `bn` `gu` `kn` `ml` `pa` `or` `ur`
@@ -440,7 +450,7 @@ npm run dev
 |---|---|---|
 | Citizen (Ramesh) | `citizen@demo.com` / `demo123` | File voice complaint in Hindi → see AI notice → case number issued |
 | Sarpanch (Sunita) | `sarpanch@demo.com` / `demo123` | Scheme voice search · AI budget · Record Gram Sabha · Integration alert |
-| Admin | `admin@gmail.com` / `admin` | Live stats charts · alert feed · monthly trends |
+| Admin | `admin@gmail.com` / `admin` | Live stats · all complaints table · complaint detail panel · send follow-up email · grievances · meeting minutes · budget spend breakdown |
 
 **Integration demo trigger:** File 5 MGNREGA cases from the same panchayat → watch the cross-module alert appear on the Sarpanch dashboard automatically.
 
@@ -456,7 +466,14 @@ npm run dev
 | Express | `/api/cases/:id/dispatch-email` | POST | Dispatch notice to one or multiple recipients; returns Section 65B metadata |
 | Express | `/api/grievances` | POST / GET / PATCH | Village grievances CRUD |
 | Express | `/api/meetings` | POST / GET / DELETE | Gram Sabha MOMs |
-| Express | `/api/admin/stats` | GET | Live dashboard aggregates |
+| Express | `/api/admin/stats` | GET | Live dashboard aggregates (stats, charts, alerts) |
+| Express | `/api/admin/cases` | GET | All complaints with merged user details + complaint gist |
+| Express | `/api/admin/cases/:id` | GET | Full complaint detail — description, legal notice, timeline events |
+| Express | `/api/admin/cases/:id/followup` | POST | Send follow-up email to complainant + write timeline event |
+| Express | `/api/admin/grievances` | GET | All panchayat grievances across DynamoDB |
+| Express | `/api/admin/meetings` | GET | Lightweight list of all Gram Sabha meetings |
+| Express | `/api/admin/meetings/:panchayatId/:sk` | GET | Full meeting detail including AI-generated minutes |
+| Express | `/api/admin/budget` | GET | All panchayat budget records |
 | Express | `/api/integration/analyze` | POST | Trigger pattern detection |
 | AI | `/ai/voice/transcribe` | POST | Audio file → text (Transcribe) |
 | AI | `/ai/legal/categorize` | POST | Transcript → complaint category |
